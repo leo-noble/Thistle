@@ -1,0 +1,381 @@
+/* ============================================================
+   Thistle — usage.css
+   Inline session-usage bar in the composer toolbar, between the
+   + button and the model picker. Golden-orange bar, percentage
+   and reset time, no "session" label.
+
+   NOTHING HERE IS GATED ON [data-th-theme].
+
+   It used to be, and the gauge carried a `display: none` for the
+   theme-off case because it would otherwise render as unskinned
+   markup. That made one toggle do two unrelated jobs: a switch
+   labelled "High contrast" silently deleted the usage gauge, which
+   is a feature, not a colour.
+
+   So the control is built twice over. The base rules use colours
+   derived from currentColor and the system Canvas pair, which land
+   correctly on Claude's own light *or* dark palette. The
+   html[data-th-theme] rules that follow each one restate the exact
+   theme value, so with the theme on nothing about the appearance
+   changed. Theme off is now a palette swap, not an amputation.
+   ============================================================ */
+
+/* Sits inline in the composer's control row, immediately right of the
+   plus button. Compact premium aesthetic — percentage beside the bar,
+   reset time in a hover tooltip to keep the inline footprint small. */
+.th-usage {
+  /* Local palette. The base values are relative to whatever the
+     composer already paints, so they resolve against Claude's stock
+     light and dark modes alike; the theme block below pins them. */
+  --th-gauge-ink: currentColor;
+  --th-gauge-track: color-mix(in srgb, currentColor 16%, transparent);
+  --th-gauge-track-edge: color-mix(in srgb, currentColor 9%, transparent);
+  --th-gauge-hover: color-mix(in srgb, currentColor 10%, transparent);
+  --th-gauge-press: color-mix(in srgb, currentColor 18%, transparent);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  margin: 0 8px;
+  /* Inherited with the theme off: the gauge is a guest in Claude's own
+     toolbar there and should not be the one element in Inter. */
+  font-family: inherit;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--th-gauge-ink);
+  border-radius: var(--th-r-sm, 8px);
+  transition: background var(--th-dur, 0.16s) var(--th-ease, ease);
+  cursor: pointer;
+  user-select: none;
+}
+
+html[data-th-theme] .th-usage {
+  --th-gauge-ink: var(--th-text-2);
+  --th-gauge-track: rgba(255, 255, 255, 0.11);
+  --th-gauge-track-edge: rgba(255, 255, 255, 0.06);
+  --th-gauge-hover: rgba(255, 255, 255, 0.06);
+  --th-gauge-press: rgba(255, 255, 255, 0.12);
+  font-family: var(--th-font);
+}
+
+.th-usage:hover {
+  background: var(--th-gauge-hover);
+}
+
+.th-usage__pct {
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+
+html[data-th-theme] .th-usage__pct {
+  color: var(--th-text);
+}
+
+/* Velvet noir track. It has to read as an empty slot against the
+   composer fill it sits on — an earlier value (#17131a) was darker than
+   the composer itself, so at 0% there was nothing on screen at all: no
+   track, no fill, just the percentage. A light translucent track shows
+   the full span of the limit whatever the fill is doing. */
+/* 100px. Explicit rather than flex-grow — growth never happened in this
+   toolbar row, while an explicit width moved it every time. 300px matched
+   the mockup but was too wide in practice; this is the size that sat
+   comfortably in the gap between + and the model picker. */
+.th-usage__bar {
+  position: relative;
+  flex: 0 1 auto;
+  width: 100px;
+  min-width: 70px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--th-gauge-track);
+  box-shadow: inset 0 0 0 1px var(--th-gauge-track-edge);
+  overflow: hidden;
+}
+
+/* A sliver of fill stays visible at 0% so the control never looks
+   broken — min-width beats width when width resolves smaller.
+   The gold is fixed rather than derived: it is the one brand mark on the
+   control and it carries on light and dark backgrounds alike. */
+.th-usage__fill {
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d4a574 0%, #e6b87d 100%);
+  transition: width 0.4s var(--th-ease-out, ease-out);
+}
+
+.th-usage__fill[data-warn] {
+  background: linear-gradient(90deg, #d97757 0%, #e08a6e 100%);
+}
+
+/* Reset countdown — sits right of the bar, dimmer than the percentage
+   so the reading order is pct → bar → reset. Hidden until a value
+   lands, so the gap doesn't sit empty on first paint. */
+.th-usage__reset {
+  font-size: 10.5px;
+  opacity: 0.62;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  flex: 0 0 auto;
+}
+
+html[data-th-theme] .th-usage__reset {
+  opacity: 1;
+  color: var(--th-text-4);
+}
+
+.th-usage__reset:empty {
+  display: none;
+}
+
+/* ---------- Spent ---------- */
+/* Once the window is exhausted the percentage and the track are both pinned
+   at full and cannot move again until it rolls over — they have stopped
+   being a gauge. claude.ai puts its own banner directly above the composer
+   at that point ("You are out of free messages until 12:50 PM"), so leaving
+   them in place said the same thing four times in two stacked rows, and a
+   saturated 100px slab of orange is the loudest thing in a quiet toolbar.
+
+   So the control collapses to the one fact still in play: when it returns.
+   The bar comes back by itself on the next poll after the window resets.
+
+   display is restated rather than left to the base rule because the narrow
+   media query below hides the countdown; without this the whole control
+   would collapse to nothing on a phone at exactly the moment it has
+   something worth saying. Specificity carries it — three compound selectors
+   against one — so it holds inside that query regardless of order. */
+.th-usage[data-spent] .th-usage__bar,
+.th-usage[data-spent] .th-usage__pct {
+  display: none;
+}
+
+.th-usage[data-spent] .th-usage__reset {
+  display: inline;
+  font-size: 11.5px;
+  opacity: 1;
+}
+
+html[data-th-theme] .th-usage[data-spent] .th-usage__reset {
+  color: var(--th-text-2);
+}
+
+/* Popup showing weekly and session limits. Anchored to the bar control,
+   dismisses on outside click or Escape.
+
+   Two constraints shape this. The popover class matches th-usage so
+   base.css's composer div-flatten rule excludes it — without that match
+   the rule would strip its background, border, and shadow, exactly as it
+   once erased the progress track. And position is fixed, not absolute:
+   the bar lives inside Claude's composer, whose wrappers carry overflow
+   clipping, so an absolutely-positioned panel would be cut off at the
+   composer edge. usage.js sets left/bottom from the bar's rect on open.
+
+   Canvas / CanvasText are the system surface pair. Unlike currentColor
+   they are opaque, which a floating panel needs, and they follow the
+   page's color-scheme — so this is legible over Claude's light mode
+   instead of being white text on white. */
+.th-usage__popover {
+  --th-pop-bg: Canvas;
+  --th-pop-line: color-mix(in srgb, CanvasText 22%, transparent);
+
+  position: fixed;
+  width: 280px;
+  padding: 16px;
+  background: var(--th-pop-bg);
+  border: 1px solid var(--th-pop-line);
+  border-radius: var(--th-r-md, 12px);
+  box-shadow: 0 18px 52px -8px rgba(0, 0, 0, 0.32),
+              0 2px 8px rgba(0, 0, 0, 0.16);
+  color: CanvasText;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 2147483000;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--th-dur, 0.16s) var(--th-ease, ease),
+              transform var(--th-dur, 0.16s) var(--th-ease, ease);
+  pointer-events: none;
+  cursor: default;
+}
+
+html[data-th-theme] .th-usage__popover {
+  --th-pop-bg: var(--th-surface-2);
+  --th-pop-line: var(--th-line-2);
+  box-shadow: var(--th-shadow-3);
+  color: var(--th-text);
+  font-family: var(--th-font);
+}
+
+.th-usage__popover[data-open] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Caret tying the panel to the bar. --th-arrow is the bar's centre in
+   popover-local coordinates, set by usage.js, so the point still lands on
+   the bar after the panel is clamped away from the viewport edge. */
+.th-usage__popover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: var(--th-arrow, 32px);
+  margin-left: -7px;
+  border: 7px solid transparent;
+  border-top-color: var(--th-pop-line);
+}
+
+.th-usage__popover::before {
+  content: "";
+  position: absolute;
+  top: calc(100% - 1px);
+  left: var(--th-arrow, 32px);
+  margin-left: -7px;
+  border: 7px solid transparent;
+  border-top-color: var(--th-pop-bg);
+  z-index: 1;
+}
+
+/* Flipped below the bar — happens when the viewport is too short to fit the
+   panel above, typically a phone with the keyboard raised. The caret has to
+   move to the top edge and point the other way. */
+.th-usage__popover[data-flip] {
+  transform: translateY(-4px);
+}
+
+.th-usage__popover[data-flip][data-open] {
+  transform: translateY(0);
+}
+
+.th-usage__popover[data-flip]::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--th-pop-line);
+}
+
+.th-usage__popover[data-flip]::before {
+  top: auto;
+  bottom: calc(100% - 1px);
+  border-top-color: transparent;
+  border-bottom-color: var(--th-pop-bg);
+}
+
+.th-usage__limit {
+  margin-bottom: 14px;
+}
+
+.th-usage__limit:last-child {
+  margin-bottom: 0;
+}
+
+.th-usage__limit-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+html[data-th-theme] .th-usage__limit-label {
+  opacity: 1;
+  color: var(--th-text-3);
+}
+
+.th-usage__limit-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+html[data-th-theme] .th-usage__limit-value {
+  color: var(--th-text);
+}
+
+.th-usage__limit-reset {
+  display: block;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+html[data-th-theme] .th-usage__limit-reset {
+  opacity: 1;
+  color: var(--th-text-4);
+}
+
+/* ============================================================
+   Narrow viewports
+
+   The desktop control is about 190px wide — percentage, a 100px track,
+   and a countdown. A phone composer row has the + and send buttons in
+   it already and maybe 320px to work with, so at full size this wraps
+   the row onto two lines. That is the exact failure we spent a long
+   time fixing on desktop; it must not come back on mobile.
+
+   Shed in order of value: the countdown goes first (it is in the popup),
+   then the track narrows, then at the smallest sizes the track goes too
+   and the percentage stands alone. A number is worth keeping at any
+   width; a 40px stub of bar is not.
+   ============================================================ */
+@media (max-width: 640px) {
+  .th-usage {
+    gap: 7px;
+    padding: 0 6px;
+    margin: 0 2px;
+  }
+
+  .th-usage__bar {
+    width: 56px;
+    min-width: 40px;
+  }
+
+  /* In the popup instead. */
+  .th-usage__reset {
+    display: none;
+  }
+
+  /* Fixed 280px overflows a 360px viewport once margins are counted. */
+  .th-usage__popover {
+    width: min(280px, calc(100vw - 32px));
+  }
+}
+
+@media (max-width: 420px) {
+  .th-usage {
+    gap: 0;
+    padding: 0 4px;
+    margin: 0;
+  }
+
+  .th-usage__bar {
+    display: none;
+  }
+}
+
+/* Touch input. :hover is the only cue the control is tappable, and it
+   never fires on a touchscreen — so give the resting state a visible
+   edge instead, and grow the hit area to something a thumb can land on.
+   Keyed on coarse pointers rather than width: a touch laptop should get
+   the target too, and a narrow desktop window should not. */
+@media (pointer: coarse) {
+  .th-usage {
+    min-height: 36px;
+    background: var(--th-gauge-track-edge);
+    box-shadow: inset 0 0 0 1px var(--th-gauge-track-edge);
+  }
+
+  .th-usage:active {
+    background: var(--th-gauge-press);
+  }
+}

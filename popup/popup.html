@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-th-theme="on">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thistle</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand__mark">
+      <!-- The gauge from icons/, redrawn as a stroke so it inherits the
+           header's colour. Kept as inline SVG rather than an <img> to the
+           PNG so it stays crisp at any zoom. -->
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5.6 18.4A9 9 0 1 1 18.4 18.4" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2.1" fill="currentColor"/>
+      </svg>
+    </div>
+    <h1>Thistle</h1>
+    <span class="dot" id="statusDot"></span>
+  </div>
+
+  <div class="stack">
+    <section class="panel">
+      <p class="label">Theme</p>
+      <label class="opt">
+        <span class="opt__name">High contrast</span>
+        <label class="switch">
+          <input type="checkbox" id="themeToggle" checked>
+          <span class="switch__track">
+            <span class="switch__thumb"></span>
+          </span>
+        </label>
+      </label>
+    </section>
+
+    <section class="panel" id="usageCard" data-needs-tab>
+      <p class="label">Session usage</p>
+      <div class="usage">
+        <div class="usage__meta">
+          <span class="usage__label" id="usageLabel">0%</span>
+          <span class="usage__reset" id="usageReset"></span>
+        </div>
+        <div class="usage__bar">
+          <div class="usage__fill" id="usageFill" style="width: 0%"></div>
+        </div>
+      </div>
+      <p class="usage__note" id="usageNote">No data yet</p>
+    </section>
+
+    <section class="panel" data-needs-tab>
+      <p class="label">Transfer to</p>
+      <div class="grid grid--3">
+        <!-- Brand marks stacked over the label. Three names side by side in a
+             288px popup left each chip about 80px, which is not enough for
+             "ChatGPT" to sit comfortably next to an inline glyph — going
+             vertical buys the width back and the logos do most of the
+             identifying anyway. -->
+        <button class="chip chip--brand" data-transfer="chatgpt" style="--brand: #10a37f"
+                title="Open ChatGPT with this conversation in the composer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .75 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9A5.98 5.98 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07Zm-9.02 12.61a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.79.79 0 0 0 .4-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.59a4.5 4.5 0 0 1-4.5 4.49Zm-9.66-4.13a4.47 4.47 0 0 1-.53-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.34a.08.08 0 0 1-.03.06L9.74 19.95a4.5 4.5 0 0 1-6.14-1.65ZM2.34 7.9a4.49 4.49 0 0 1 2.37-1.98v5.68a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9Zm16.6 3.86-5.84-3.4 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.49 4.49 0 0 1-.68 8.1v-5.67a.79.79 0 0 0-.4-.67Zm2.01-3.03-.14-.08-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66ZM8.31 12.86l-2.02-1.16a.08.08 0 0 1-.04-.06V6.07a4.5 4.5 0 0 1 7.38-3.45l-.14.08-4.78 2.76a.79.79 0 0 0-.4.68Zm1.1-2.36 2.6-1.5 2.61 1.5v3l-2.6 1.5-2.6-1.5Z"/>
+          </svg>
+          <span class="chip__label">ChatGPT</span>
+        </button>
+        <button class="chip chip--brand" data-transfer="gemini" style="--brand: #4c8df6"
+                title="Open Gemini with this conversation in the composer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0c0 6.63 5.37 12 12 12-6.63 0-12 5.37-12 12 0-6.63-5.37-12-12-12C6.63 12 12 6.63 12 0Z"/>
+          </svg>
+          <span class="chip__label">Gemini</span>
+        </button>
+        <button class="chip chip--brand" data-transfer="grok" style="--brand: #e8e8e8"
+                title="Open Grok with this conversation in the composer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M2.6 3h4.13l6.3 8.9-2.07 2.93L2.6 3Zm0 18h4.13l2.9-4.13-2.07-2.94L2.6 21ZM21.4 3h-4.13L8.75 21h4.14L21.4 3Z"/>
+          </svg>
+          <span class="chip__label">Grok</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel" data-needs-tab>
+      <p class="label">Context</p>
+      <div class="grid grid--2">
+        <button class="chip chip--icon" data-copy="markdown" title="Copy the whole conversation to the clipboard as Markdown">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="9" width="11.5" height="11.5" rx="2.4"
+                  stroke="currentColor" stroke-width="2"/>
+            <path d="M15 5.4A2.4 2.4 0 0 0 12.6 3H5.4A2.4 2.4 0 0 0 3 5.4v7.2A2.4 2.4 0 0 0 5.4 15"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="chip__label">Copy context</span>
+        </button>
+        <button class="chip chip--icon" data-download="markdown" title="Save the whole conversation as a .md file">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v11m0 0 4.2-4.2M12 14l-4.2-4.2" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 17v1.6A2.4 2.4 0 0 0 6.4 21h11.2a2.4 2.4 0 0 0 2.4-2.4V17"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="chip__label">Download .md</span>
+        </button>
+      </div>
+      <p class="panel__hint" id="contextHint">The open conversation, as Markdown</p>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

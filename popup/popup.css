@@ -1,0 +1,474 @@
+/* ============================================================
+   Thistle — popup.css
+   Same palette as content/base.css so the popup and the page
+   read as one product.
+
+   Every length below comes from the 4px scale declared as
+   --th-sp-*. If a value here isn't one of those steps it is a
+   deliberate optical correction and says so in a comment.
+   ============================================================ */
+
+html {
+  --th-bg: #000000;
+  --th-surface: #141414;
+  --th-surface-2: #1c1c1c;
+  --th-surface-3: #232323;
+  --th-hover: #262626;
+  --th-active: #303030;
+  --th-rail: #0f0f0f;
+  --th-text: #f5f5f5;
+  --th-text-2: #b4b4b4;
+  --th-text-3: #8a8a8a;
+  --th-text-4: #6a6a6a;
+  --th-line: #1f1f1f;
+  --th-line-2: #2e2e2e;
+  --th-line-3: #3a3a3a;
+  --th-accent: #d97757;
+  --th-accent-hover: #e08a6e;
+  --th-accent-on: #1a0f0a;
+  --th-accent-soft: rgba(217, 119, 87, 0.14);
+  --th-gold: #d4a574;
+  --th-gold-2: #e6b87d;
+  --th-danger: #d16f62;
+
+  --th-r-sm: 8px;
+  --th-r-md: 10px;
+  --th-r-lg: 12px;
+
+  /* Spacing scale — 4px base. Nothing in this file is hand-picked. */
+  --th-sp-1: 4px;
+  --th-sp-2: 8px;
+  --th-sp-3: 12px;
+  --th-sp-4: 16px;
+  --th-sp-5: 20px;
+  --th-sp-6: 24px;
+
+  /* Control heights. Fixed rather than content-derived so every button in
+     a row is exactly the same size whatever its label. */
+  --th-h-chip: 40px;
+  --th-h-brand: 76px;
+
+  --th-font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --th-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --th-dur: 0.16s;
+  color-scheme: dark;
+  /* The popup is sized from the document, not from body alone — leaving
+     html at its default let the two disagree and the body's width read as
+     a box floating inside a narrower page. */
+  width: 312px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  /* 312px. A step down from the marked reference width, kept on the set of
+     widths where the grid maths stays whole: content width is 312 - 32 =
+     280, so three columns at an 8px gutter are exactly 88px each and two
+     columns are exactly 136px each. No sub-pixel track rounding, so no seam
+     where one button looks a hair wider than the next.
+
+     Only multiples of 12 satisfy both rows at once — three columns need the
+     width divisible by 3, two columns need it even. That is why the sizes
+     here move in 12px steps rather than to whatever number looks right:
+     324 and 336 are the neighbours, and the fractional widths between them
+     are what made the provider row look uneven in the first place.
+
+     min-width, and deliberately no max-width: 100vw. A popup has no viewport
+     until it has been laid out, and it has no layout width until the CSS
+     says how wide it is — so vw resolves against Chrome's narrow starting
+     guess and the clamp feeds back on itself. The popup settles at that
+     guess instead of the width asked for, which is what squeezed it to a
+     ~260px strip with every label clipped mid-word. */
+  width: 312px;
+  min-width: 312px;
+  margin: 0;
+  background: var(--th-bg);
+  color: var(--th-text);
+  font-family: var(--th-font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Firefox for Android opens this document full-screen rather than as a
+   panel, so there the width above has to give way and touch needs taller
+   targets than mouse dimensions.
+
+   `and`, not a comma. A comma is OR, and Chrome lays the popup out once
+   against a narrow starting viewport before it knows the real width — so
+   the desktop popup matched the `max-width` arm, pinned itself to 100% of
+   that guess, and never grew. Requiring a coarse pointer as well keeps
+   this arm on the devices it was written for. */
+@media (max-width: 400px) and (pointer: coarse) {
+  body {
+    width: 100%;
+    min-width: 0;
+  }
+
+  html {
+    width: auto;
+    --th-h-chip: 46px;
+    --th-h-brand: 84px;
+  }
+}
+
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--th-sp-3);
+  padding: var(--th-sp-4) var(--th-sp-4) var(--th-sp-3);
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: var(--th-r-sm);
+  background: var(--th-accent-soft);
+  color: var(--th-accent);
+}
+
+.brand__mark svg {
+  width: 17px;
+  height: 17px;
+}
+
+.topbar h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dot {
+  width: var(--th-sp-2);
+  height: var(--th-sp-2);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--th-accent);
+  transition: background var(--th-dur) var(--th-ease);
+}
+.dot[data-off] { background: var(--th-text-4); }
+
+/* ---------- Layout ---------- */
+/* No dividers — the uppercase labels and the panel padding carry the
+   grouping. An earlier version had 1px gaps showing the stack's background
+   through as hairlines, which added noise without adding structure. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  background: var(--th-bg);
+}
+
+.panel {
+  padding: var(--th-sp-3) var(--th-sp-4) var(--th-sp-4);
+  background: var(--th-bg);
+}
+
+/* Panels that need a claude.ai tab go quiet when there isn't one, rather
+   than offering buttons that would silently do nothing. */
+.panel[data-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.label {
+  margin: 0 0 var(--th-sp-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--th-text-4);
+}
+
+/* minmax(0, 1fr), not 1fr. A bare 1fr is minmax(auto, 1fr), so a track can
+   never shrink below its content's min-content width — with nowrap labels
+   that made the ChatGPT column wider than the Grok column and the row came
+   out visibly uneven. The 0 floor forces mathematically equal tracks. */
+.grid {
+  display: grid;
+  gap: var(--th-sp-2);
+}
+.grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ---------- Chips ---------- */
+/* One shared shell for every button in the popup: same fill, same border,
+   same radius, same focus ring. The two variants below change only layout
+   and glyph size — never the surface — so the whole set reads as one family. */
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--th-sp-2);
+  /* Height comes from the variable, so a label can never make one button
+     taller than its neighbour. Horizontal padding only. */
+  min-height: var(--th-h-chip);
+  padding: 0 var(--th-sp-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--th-text-2);
+  /* Top-lit gradient plus a hairline highlight along the top edge. On a
+     true-black canvas a flat fill reads as a hole; the 1px inset catches
+     the light the way a physical bevel would. */
+  background: linear-gradient(180deg, var(--th-surface-3) 0%, var(--th-surface-2) 100%);
+  border: 1px solid var(--th-line-2);
+  border-radius: var(--th-r-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background var(--th-dur) var(--th-ease),
+              color var(--th-dur) var(--th-ease),
+              border-color var(--th-dur) var(--th-ease),
+              box-shadow var(--th-dur) var(--th-ease);
+}
+
+/* The label is a real element, not a bare text node. A text node inside a
+   flex container becomes an anonymous flex item, and text-overflow can't
+   address one of those — so an over-long label was sliced off at both ends
+   by the centred overflow ("hatGP") instead of ending in an ellipsis.
+   min-width: 0 is what lets it shrink below its own text at all. */
+.chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: linear-gradient(180deg, var(--th-hover) 0%, var(--th-surface-3) 100%);
+  border-color: var(--th-line-3);
+  color: var(--th-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.chip:active {
+  background: var(--th-active);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--th-accent);
+  outline-offset: 2px;
+}
+
+.chip.is-done {
+  color: var(--th-accent);
+  border-color: var(--th-accent);
+}
+
+/* ---------- Context chips: glyph beside the label ---------- */
+/* "Copy" and "Download" alone were read as actions on the extension rather
+   than on the open chat; a clipboard and a save-arrow settle that faster
+   than a longer label would. */
+.chip--icon svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  opacity: 0.72;
+  transition: opacity var(--th-dur) var(--th-ease);
+}
+
+.chip--icon:hover svg,
+.chip--icon.is-done svg { opacity: 1; }
+
+/* ---------- Brand chips: logo stacked over the label ---------- */
+/* Three names side by side leave ~96px per chip, which is not enough for
+   "ChatGPT" beside an inline glyph. Stacking buys the width back. The logo
+   carries the brand colour via inline --brand; the chip surface stays
+   neutral so the row reads as one control set, not three competing products. */
+.chip--brand {
+  flex-direction: column;
+  gap: var(--th-sp-2);
+  min-height: var(--th-h-brand);
+  padding: 0 var(--th-sp-1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.chip--brand svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--brand, currentColor);
+  opacity: 0.82;
+  transition: opacity var(--th-dur) var(--th-ease),
+              transform var(--th-dur) var(--th-ease),
+              filter var(--th-dur) var(--th-ease);
+}
+
+/* The only place brand colour touches anything but the glyph itself. */
+.chip--brand:hover svg {
+  opacity: 1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--brand) 45%, transparent));
+}
+
+.chip--brand:active svg {
+  transform: translateY(0);
+  filter: none;
+}
+
+/* ---------- Toggle row ---------- */
+.opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--th-sp-3);
+  min-height: var(--th-sp-6);
+  cursor: pointer;
+}
+
+.opt__name {
+  font-size: 13px;
+  color: var(--th-text);
+}
+
+.switch { position: relative; display: inline-flex; flex: 0 0 auto; cursor: pointer; }
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch__track {
+  display: block;
+  width: 36px;
+  height: var(--th-sp-5);
+  padding: 2px;
+  border-radius: 99px;
+  background: var(--th-surface-3);
+  border: 1px solid var(--th-line-2);
+  transition: background var(--th-dur) var(--th-ease),
+              border-color var(--th-dur) var(--th-ease);
+}
+
+.switch__thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--th-text-3);
+  transition: transform var(--th-dur) var(--th-ease),
+              background var(--th-dur) var(--th-ease);
+}
+
+.switch input:checked + .switch__track {
+  background: var(--th-accent);
+  border-color: var(--th-accent);
+}
+.switch input:checked + .switch__track .switch__thumb {
+  background: var(--th-accent-on);
+  transform: translateX(16px);
+}
+.switch input:focus-visible + .switch__track {
+  outline: 2px solid var(--th-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Usage ---------- */
+.usage__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--th-sp-2);
+  margin-bottom: var(--th-sp-3);
+}
+
+.usage__label {
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* Negative tracking at display sizes — the default spacing that suits
+     13px body text looks loose on a 24px figure. */
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: var(--th-text);
+}
+
+.usage__reset {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--th-text-4);
+}
+
+/* A recessed channel rather than a painted line — the inner shadow is what
+   sells the depth against a black canvas. 4px: the shadow below is 2px, so
+   going thinner than this would leave the channel mostly shadow and the
+   fill would stop reading as a fill. */
+.usage__bar {
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+/* Velvet-noir track, golden-orange fill — the same treatment as the inline
+   bar in the composer. The glow lifts the fill out of the channel. */
+.usage__fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--th-gold) 0%, var(--th-gold-2) 100%);
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--th-gold) 55%, transparent);
+  transition: width 0.4s var(--th-ease);
+}
+.usage__fill[data-warn] {
+  background: linear-gradient(90deg, var(--th-accent) 0%, var(--th-accent-hover) 100%);
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--th-accent) 60%, transparent);
+}
+
+/* Both secondary captions share one size and colour so the eye reads them
+   as the same kind of information wherever they appear. */
+.usage__note,
+.panel__hint {
+  margin: var(--th-sp-3) 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--th-text-4);
+}
+
+/* The hint doubles as the context buttons' error channel — the toast is easy
+   to miss, and with the panel at 40% opacity the reason it's dimmed needs to
+   be legible right there. */
+.panel__hint[data-warn] { color: var(--th-accent); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--th-sp-3);
+  transform: translate(-50%, var(--th-sp-2));
+  max-width: calc(100% - var(--th-sp-6));
+  padding: var(--th-sp-2) var(--th-sp-3);
+  border-radius: 99px;
+  background: var(--th-surface-3);
+  border: 1px solid var(--th-line-2);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.8);
+  color: var(--th-text);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--th-dur) var(--th-ease),
+              transform var(--th-dur) var(--th-ease);
+}
+
+.toast.is-on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

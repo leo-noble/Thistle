@@ -1,0 +1,418 @@
+/* ============================================================
+   Thistle — base.css
+   Claude's native dark-contrast palette applied to claude.ai.
+   Pure #000 canvas, neutral elevation steps, Claude coral as
+   the only saturated hue. One appearance — no theme picker.
+   ============================================================ */
+
+html {
+  --th-bg: #000000;
+  --th-surface: #141414;
+  --th-surface-2: #1c1c1c;
+  --th-surface-3: #232323;
+  --th-hover: #262626;
+  --th-active: #303030;
+  --th-composer: #1c1c1c;
+  --th-composer-line: #2e2e2e;
+  --th-rail: #0f0f0f;
+  --th-text: #f5f5f5;
+  --th-text-2: #b4b4b4;
+  --th-text-3: #8a8a8a;
+  --th-text-4: #6a6a6a;
+  --th-line: #1f1f1f;
+  --th-line-2: #2e2e2e;
+  --th-accent: #d97757;
+  --th-accent-hover: #e08a6e;
+  --th-accent-press: #c05f3f;
+  --th-accent-on: #1a0f0a;
+  --th-accent-soft: rgba(217, 119, 87, 0.14);
+  --th-accent-ring: rgba(217, 119, 87, 0.4);
+  --th-warn: #d9a463;
+  --th-danger: #d16f62;
+  --th-scrollbar: #2a2a2a;
+  --th-scrollbar-hover: #3a3a3a;
+  --th-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --th-shadow-2: 0 4px 18px -4px rgba(0, 0, 0, 0.65);
+  --th-shadow-3: 0 18px 52px -8px rgba(0, 0, 0, 0.85), 0 2px 8px rgba(0, 0, 0, 0.55);
+  --th-r-xs: 6px;
+  --th-r-sm: 8px;
+  --th-r-md: 12px;
+  --th-r-lg: 16px;
+  --th-font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --th-font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+  --th-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --th-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --th-dur: 0.16s;
+}
+
+html[data-th-theme] { color-scheme: dark; }
+
+/* Claude token remap.
+   Matching is anchored to a token boundary — start of the attribute, or
+   preceded by a space — so `bg-bg-100` and its alpha variant
+   `bg-bg-100/80` both hit, while `hover:bg-bg-100` does not. A bare
+   substring match would pin every hover fill on at rest. */
+html[data-th-theme] [class~="text-text-000"],
+html[data-th-theme] [class~="text-text-100"] { color: var(--th-text) !important; }
+html[data-th-theme] [class~="text-text-200"],
+html[data-th-theme] [class~="text-text-300"] { color: var(--th-text-2) !important; }
+html[data-th-theme] [class~="text-text-400"],
+html[data-th-theme] [class~="text-text-500"] { color: var(--th-text-3) !important; }
+
+/* bg-bg-100 is the top bar and the disclaimer strip, not a card. It maps
+   to the canvas, not to an elevation step — that grey band was the whole
+   complaint. */
+html[data-th-theme] [class^="bg-bg-000"],
+html[data-th-theme] [class*=" bg-bg-000"],
+html[data-th-theme] [class^="bg-bg-100"],
+html[data-th-theme] [class*=" bg-bg-100"] {
+  background-color: var(--th-bg) !important;
+}
+
+html[data-th-theme] [class^="bg-bg-200"],
+html[data-th-theme] [class*=" bg-bg-200"] {
+  background-color: var(--th-surface-2) !important;
+}
+
+html[data-th-theme] [class^="bg-bg-300"],
+html[data-th-theme] [class*=" bg-bg-300"],
+html[data-th-theme] [class^="bg-bg-400"],
+html[data-th-theme] [class*=" bg-bg-400"],
+html[data-th-theme] [class^="bg-bg-500"],
+html[data-th-theme] [class*=" bg-bg-500"] {
+  background-color: var(--th-surface-3) !important;
+}
+
+html[data-th-theme] [class~="border-border-100"],
+html[data-th-theme] [class~="border-border-200"],
+html[data-th-theme] [class~="border-border-300"] { border-color: var(--th-line) !important; }
+
+/* Chrome bars — the top bar and the disclaimer strip. Both need the
+   fill AND the blur removed: the grey is as often a backdrop blur over
+   scrolling content as it is a painted background, and killing only one
+   leaves the band visible. Descendants are flattened too, since the
+   wrapper that carries the blur is usually a parent of the one that
+   carries the fill. */
+html[data-th-theme] [data-th-el="topbar"],
+html[data-th-theme] [data-th-el="disclaimer"],
+html[data-th-theme] [data-th-el="topbar"] > *,
+html[data-th-theme] [data-th-el="disclaimer"] > * {
+  background: var(--th-bg) !important;
+  background-color: var(--th-bg) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Buttons inside the chrome keep a chip, since the rule above would
+   otherwise repaint Share and the sidebar toggle as flat canvas. */
+html[data-th-theme] [data-th-el="topbar"] :is(button, a),
+html[data-th-theme] [data-th-el="disclaimer"] :is(button, a) {
+  background: var(--th-surface-2) !important;
+  background-color: var(--th-surface-2) !important;
+}
+
+html[data-th-theme] [data-th-el="topbar"] :is(button, a):hover {
+  background: var(--th-hover) !important;
+  background-color: var(--th-hover) !important;
+}
+
+/* The conversation-title control and icon-only rail buttons are not
+   chips in the native app — they sit directly on the bar. */
+html[data-th-theme] [data-th-el="topbar"] :is(button, a):not([class*="bg-"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html[data-th-theme] [data-th-el="topbar"] :is(button, a):not([class*="bg-"]):hover {
+  background: var(--th-hover) !important;
+  background-color: var(--th-hover) !important;
+}
+
+/* The scroll scrim above the composer. Claude fades the transcript out into
+   its own background colour, which on a #000 canvas reads as a grey slab
+   with the transient buttons floating in it.
+
+   Kept as a gradient rather than flattened to transparent — the fade is
+   doing real work, stopping text from running hard into the composer edge.
+   Only the colour it fades into is wrong, so respell it in our canvas. */
+html[data-th-theme] [data-th-el="scrim"] {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.72) 55%,
+    var(--th-bg) 100%
+  ) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Children carry their own copy of the band in some builds — the fade is
+   split across a stack of layers. Flatten those; the parent above is the
+   only one that should paint. */
+html[data-th-theme] [data-th-el="scrim"] > *:not(button):not(a) {
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* "Quick answer" and the scroll-to-bottom control sit inside the band and
+   have to stay legible against it. */
+html[data-th-theme] [data-th-el="scrim"] :is(button, a) {
+  background-color: var(--th-surface-2) !important;
+  background-image: none !important;
+  border: 1px solid var(--th-line-2) !important;
+  color: var(--th-text-2) !important;
+  box-shadow: var(--th-shadow-1) !important;
+}
+
+html[data-th-theme] [data-th-el="scrim"] :is(button, a):hover {
+  background-color: var(--th-hover) !important;
+  color: var(--th-text) !important;
+}
+
+html[data-th-theme] [class~="text-accent-main-000"],
+html[data-th-theme] [class~="text-accent-main-100"],
+html[data-th-theme] [class~="text-accent-main-200"],
+html[data-th-theme] [class~="text-accent-secondary-000"],
+html[data-th-theme] [class~="text-accent-secondary-100"],
+html[data-th-theme] [class~="text-accent-secondary-200"],
+html[data-th-theme] [class~="text-accent-pro-000"],
+html[data-th-theme] [class~="text-accent-pro-100"],
+html[data-th-theme] [class~="text-accent-pro-200"] { color: var(--th-accent) !important; }
+
+html[data-th-theme] [class~="bg-accent-main-000"],
+html[data-th-theme] [class~="bg-accent-main-100"],
+html[data-th-theme] [class~="bg-accent-main-200"],
+html[data-th-theme] [class~="bg-accent-secondary-000"],
+html[data-th-theme] [class~="bg-accent-secondary-100"],
+html[data-th-theme] [class~="bg-accent-secondary-200"],
+html[data-th-theme] [class~="bg-accent-pro-000"],
+html[data-th-theme] [class~="bg-accent-pro-100"],
+html[data-th-theme] [class~="bg-accent-pro-200"] {
+  background-color: var(--th-accent) !important;
+  color: var(--th-accent-on) !important;
+}
+
+/* Global */
+html[data-th-theme] body {
+  background: var(--th-bg) !important;
+  color: var(--th-text) !important;
+  font-family: var(--th-font) !important;
+}
+
+html[data-th-theme] ::selection {
+  background: var(--th-accent-soft);
+  color: var(--th-text);
+}
+
+html[data-th-theme] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--th-scrollbar) transparent;
+}
+html[data-th-theme] *::-webkit-scrollbar { width: 10px; height: 10px; }
+html[data-th-theme] *::-webkit-scrollbar-thumb {
+  background: var(--th-scrollbar);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+html[data-th-theme] *::-webkit-scrollbar-thumb:hover {
+  background: var(--th-scrollbar-hover);
+  background-clip: padding-box;
+}
+
+/* Opacity variants. Claude's sticky chrome uses translucent fills
+   (bg-bg-100/80) over a blur, and `~=` matches whole tokens only — so
+   `bg-bg-100/80` slips past the remap above and keeps its stock grey.
+   The leading space / string-start anchors mean a `hover:` or
+   `group-hover:` prefixed token won't match, which would otherwise pin
+   the hover fill on at rest. */
+html[data-th-theme] [class^="bg-bg-000/"],
+html[data-th-theme] [class*=" bg-bg-000/"] { background-color: var(--th-bg) !important; }
+
+html[data-th-theme] [class^="bg-bg-100/"],
+html[data-th-theme] [class*=" bg-bg-100/"] { background-color: var(--th-bg) !important; }
+
+html[data-th-theme] [class^="bg-bg-200/"],
+html[data-th-theme] [class*=" bg-bg-200/"] { background-color: var(--th-surface-2) !important; }
+
+html[data-th-theme] [class^="bg-bg-300/"],
+html[data-th-theme] [class*=" bg-bg-300/"] { background-color: var(--th-surface-3) !important; }
+
+/* A blur over a translucent fill reads as grey no matter what colour
+   sits underneath it, so the chrome bars drop it entirely. */
+html[data-th-theme] [data-th-el="topbar"],
+html[data-th-theme] [data-th-el="disclaimer"],
+html[data-th-theme] [data-th-el="scrim"],
+html[data-th-theme] [class*="backdrop-blur"]:is([class*="bg-bg-"], [data-th-el]) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Sidebar */
+html[data-th-theme] :is(nav, aside, [class*="sidebar" i]) {
+  background: var(--th-rail) !important;
+  border-right: 1px solid var(--th-line) !important;
+}
+
+html[data-th-theme] :is(nav, aside, [class*="sidebar" i]) a,
+html[data-th-theme] :is(nav, aside, [class*="sidebar" i]) button {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-th-theme] :is(nav, aside, [class*="sidebar" i]) a:hover,
+html[data-th-theme] :is(nav, aside, [class*="sidebar" i]) button:hover {
+  background: var(--th-hover) !important;
+}
+
+/* User messages need to stay legible as *the user's*. The bg-bg-*
+   remap flattens Claude's bubble fill toward the canvas, which on a
+   #000 background leaves the prompt floating with nothing separating it
+   from the reply below.
+
+   Claude wraps user messages in a container that already has proper
+   padding and shape. Rather than guessing at nested wrappers, let the
+   testid element itself carry the fill — it's wide enough to read as
+   a distinct surface, and clearing backgrounds on its children keeps
+   the text from inheriting a stacked tint. */
+html[data-th-theme] [data-testid="user-message"] {
+  background: var(--th-surface-2) !important;
+  border: 1px solid var(--th-line-2) !important;
+  border-radius: var(--th-r-lg) !important;
+  padding: 16px !important;
+  color: var(--th-text) !important;
+}
+
+html[data-th-theme] [data-testid="user-message"] * {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* The wrappers mark.js tagged between the bubble and the transcript. The
+   attribute is repeated to lift specificity to (0,3,1): the bg-bg-* remap
+   above scores (0,2,1) and a single-attribute selector here would only
+   tie with it, leaving the outcome to source order. Repeating it settles
+   the contest outright — that frame has come back twice already. */
+html[data-th-theme] [data-th-el="usermsg-wrap"][data-th-el] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Composer
+   Colour and edge only. Not one property here changes the box's size — that
+   now comes out right on its own, because mark.js tags the card Claude
+   actually draws rather than an element inside it.
+
+   That was the whole "it's smaller than the original" problem, and padding was
+   never going to fix it. The climb up from the text field used to stop at
+   single-child wrappers, so it halted *inside* Claude's card. The card's own
+   padding then sat outside our fill: the box we painted was genuinely smaller
+   than the native one, and adding padding just shuffled the contents around
+   inside the wrong element. With the right element tagged, Claude's padding
+   applies as shipped and the size matches by construction.
+
+   The edge is an inset ring rather than a real border for a related reason.
+   Under `box-sizing: border-box` a 2px border eats 2px out of Claude's padding,
+   so a border would quietly shrink the box again. A ring occupies no layout.
+
+   The radius is measured, not chosen: mark.js reads it off Claude's card and
+   publishes it as --th-composer-radius. The fallback applies only if that
+   measurement fails outright. */
+html[data-th-theme] [data-th-el="composer"] {
+  background: var(--th-composer) !important;
+  border-radius: var(--th-composer-radius, var(--th-r-lg)) !important;
+  box-shadow: var(--th-shadow-2),
+              inset 0 0 0 2px var(--th-composer-line) !important;
+  outline: none !important;
+  transition: box-shadow var(--th-dur) var(--th-ease);
+}
+
+html[data-th-theme] [data-th-el="composer"]:focus-within {
+  box-shadow: var(--th-shadow-2),
+              inset 0 0 0 2px var(--th-line-2) !important;
+}
+
+/* Stacking. Claude tucks the "You are out of free messages until 6:30 PM" band
+   in behind the composer's bottom edge so the card's rounded corners stay
+   whole. Ours was painting under the band instead, and the band's top-left
+   corner cut across the card's bottom-left curve.
+
+   z-index only. On a flex or grid item it applies with no positioning at all,
+   which leaves the card exactly where Claude put it. The static case needs a
+   positioned element before z-index means anything, and mark.js marks that case
+   specifically rather than this rule assuming it — `position: relative` on an
+   absolutely-positioned card would move it. */
+html[data-th-theme] [data-th-el="composer"] {
+  z-index: 1 !important;
+}
+
+html[data-th-theme] [data-th-el="composer"][data-th-static] {
+  position: relative !important;
+}
+
+html[data-th-theme] *:has(> [data-th-el="composer"]):not(main):not(body),
+html[data-th-theme] *:has(> * > [data-th-el="composer"]):not(main):not(body) {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Flattens Claude's nested composer wrappers so only the outer box reads
+   as a surface. The th-usage exclusion is load-bearing: the usage bar is
+   injected *into* the composer, and its track and fill are plain divs, so
+   without it this rule erased both. It also outweighs usage.css on
+   specificity — five attribute selectors to two — so raising the
+   stylesheet's specificity instead would not have been enough. */
+html[data-th-theme] [data-th-el="composer"] div:not([role]):not([class*="chip" i]):not([class*="attach" i]):not([class*="th-usage"]) {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Buttons
+   Deliberately NOT a blanket rule. A global `button` selector ties on
+   specificity with the sidebar and composer rules above and then wins
+   on source order, which repaints the rail rows and the composer
+   toolbar as raised chips. Only buttons outside those two regions get
+   a surface. */
+html[data-th-theme] button {
+  transition: background var(--th-dur) var(--th-ease),
+              color var(--th-dur) var(--th-ease),
+              border-color var(--th-dur) var(--th-ease);
+}
+
+/* Composer toolbar controls sit ON the composer fill, so they stay
+   flat until hovered — the native app draws no chip around +. */
+html[data-th-theme] [data-th-el="composer"] button {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--th-text-2) !important;
+}
+html[data-th-theme] [data-th-el="composer"] button:hover {
+  background: var(--th-hover) !important;
+  color: var(--th-text) !important;
+}
+
+/* The send button keeps Claude's accent treatment. */
+html[data-th-theme] [data-th-el="composer"] button:is([data-testid*="send" i], [aria-label*="Send" i]) {
+  background: var(--th-accent) !important;
+  color: var(--th-accent-on) !important;
+}
+html[data-th-theme] [data-th-el="composer"] button:is([data-testid*="send" i], [aria-label*="Send" i]):hover {
+  background: var(--th-accent-hover) !important;
+}
