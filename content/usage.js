@@ -222,6 +222,34 @@
     popover.style.setProperty("--th-arrow", arrow + "px");
   }
 
+  /* Built node by node rather than from an HTML string. Nothing here is
+     user-supplied, so innerHTML would have been safe — but Mozilla's
+     add-on linter flags every innerHTML assignment it sees, and a review
+     warning is not worth saving twelve lines. */
+  function span(className, text) {
+    const node = document.createElement("span");
+    node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function div(className) {
+    const node = document.createElement("div");
+    node.className = className;
+    return node;
+  }
+
+  function limitRow(which, label) {
+    const row = div("th-usage__limit");
+    row.dataset.window = which;
+    row.append(
+      span("th-usage__limit-label", label),
+      span("th-usage__limit-value", "—"),
+      span("th-usage__limit-reset")
+    );
+    return row;
+  }
+
   function createBar() {
     const bar = document.createElement("div");
     bar.className = "th-usage";
@@ -233,25 +261,20 @@
        Every element carries a th-usage-prefixed class. base.css flattens
        plain divs inside the composer and excludes only [class*="th-usage"],
        so an unprefixed wrapper here would lose its fill and border. */
-    bar.innerHTML = `
-      <span class="th-usage__pct">—</span>
-      <div class="th-usage__bar">
-        <div class="th-usage__fill" style="width: 0%"></div>
-      </div>
-      <span class="th-usage__reset"></span>
-      <div class="th-usage__popover">
-        <div class="th-usage__limit" data-window="session">
-          <span class="th-usage__limit-label">Current session</span>
-          <span class="th-usage__limit-value">—</span>
-          <span class="th-usage__limit-reset"></span>
-        </div>
-        <div class="th-usage__limit" data-window="weekly">
-          <span class="th-usage__limit-label">Weekly</span>
-          <span class="th-usage__limit-value">—</span>
-          <span class="th-usage__limit-reset"></span>
-        </div>
-      </div>
-    `;
+    const track = div("th-usage__bar");
+    const fill = div("th-usage__fill");
+    fill.style.width = "0%";
+    track.append(fill);
+
+    const panel = div("th-usage__popover");
+    panel.append(limitRow("session", "Current session"), limitRow("weekly", "Weekly"));
+
+    bar.append(
+      span("th-usage__pct", "—"),
+      track,
+      span("th-usage__reset"),
+      panel
+    );
 
     const popover = bar.querySelector(".th-usage__popover");
 

@@ -2,6 +2,14 @@
    Thistle — popup.js
    ============================================================ */
 
+/* Firefox defines `chrome` too, but only as a callback-style alias — its
+   methods return undefined rather than a promise. Every `await api.…`
+   below then resolved to undefined and the destructures threw, which took
+   the whole popup down on Firefox: no toggle, no usage, no transfer, no
+   export. `browser` is the promise-based namespace and only Firefox has it,
+   so preferring it yields promises in both browsers. */
+const api = globalThis.browser || globalThis.chrome;
+
 const el = {
   themeToggle: document.getElementById("themeToggle"),
   statusDot: document.getElementById("statusDot"),
@@ -85,7 +93,7 @@ function renderUsage(snap) {
 }
 
 async function activeTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   return tab || null;
 }
 
@@ -94,14 +102,16 @@ function isClaudeTab(tab) {
 }
 
 async function callPage(tabId, fnName, arg) {
-  const [entry] = await chrome.scripting.executeScript({
+  const [entry] = await api.scripting.executeScript({
     target: { tabId },
     args: [fnName, arg ?? null],
+    /* Serialized and re-parsed in the tab, so it closes over nothing here —
+       `page` is content/export.js's own surface, not the extension API. */
     func: (name, param) => {
-      const api = window.__thistle;
-      if (!api || typeof api[name] !== "function") return { ok: false, reason: "unavailable" };
+      const page = globalThis.__thistle;
+      if (!page || typeof page[name] !== "function") return { ok: false, reason: "unavailable" };
       try {
-        return Promise.resolve(param === null ? api[name]() : api[name](param))
+        return Promise.resolve(param === null ? page[name]() : page[name](param))
           .then((value) => ({ ok: true, value }))
           .catch(() => ({ ok: false, reason: "error" }));
       } catch (e) {
@@ -216,7 +226,7 @@ async function runTransfer(btn, target) {
 
   let handed = false;
   try {
-    await chrome.storage.local.set({
+    await api.storage.local.set({
       thTransfer: { text: result.value, at: Date.now(), host: spec.host },
     });
     handed = true;
@@ -227,7 +237,7 @@ async function runTransfer(btn, target) {
   if (!copied && !handed) return toast("Transfer failed");
 
   flash(btn);
-  await chrome.tabs.create({ url: spec.url });
+  await api.tabs.create({ url: spec.url });
   toast(handed ? "Opening " + spec.label : "Copied");
 }
 
@@ -276,13 +286,13 @@ document.addEventListener("click", (e) => {
 
 el.themeToggle.addEventListener("change", () => {
   const enabled = el.themeToggle.checked;
-  chrome.storage.local.set({ thEnabled: enabled });
+  api.storage.local.set({ thEnabled: enabled });
   el.statusDot.toggleAttribute("data-off", !enabled);
   toast(enabled ? "Enabled" : "Paused");
 });
 
 (async function init() {
-  const stored = await chrome.storage.local.get(["thEnabled"]);
+  const stored = await api.storage.local.get(["thEnabled"]);
   const enabled = !stored || stored.thEnabled !== false;
 
   el.themeToggle.checked = enabled;

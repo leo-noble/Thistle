@@ -81,8 +81,23 @@
 
   let bridgeReadyPromise = null;
 
+  /* bridge.js sets this on <html> as soon as it runs in the page. A content
+     script cannot see page globals — in Firefox it does not even share the
+     global object — but an attribute is plain DOM and crosses the boundary
+     in both browsers. */
+  const BRIDGE_FLAG = "data-th-bridge";
+
+  function bridgeIsLive() {
+    return document.documentElement.hasAttribute(BRIDGE_FLAG);
+  }
+
   function injectBridgeOnce() {
     if (bridgeReadyPromise) return bridgeReadyPromise;
+
+    /* Already serving. On Chrome 111+ and Firefox 128+ the manifest runs
+       bridge.js in the MAIN world at document_start, so this is the normal
+       path and no script tag is ever created. */
+    if (bridgeIsLive()) return Promise.resolve(true);
 
     const runtime = getRuntime();
     if (!runtime) return Promise.resolve(false);
@@ -96,7 +111,10 @@
       script.id = "th-bridge-script";
       script.src = runtime.getURL("content/bridge.js");
       script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
+      /* A refusal here is usually the page's CSP rejecting the extension
+         URL. Re-check the flag before giving up: the MAIN-world copy may
+         have landed between the two checks. */
+      script.onerror = () => resolve(bridgeIsLive());
       (document.head || document.documentElement).appendChild(script);
     });
 

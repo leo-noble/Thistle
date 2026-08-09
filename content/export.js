@@ -144,5 +144,11 @@
     }
   }
 
-  window.__thistle = { getText, download, stats, usage };
+  /* On globalThis, not window. In Chrome's isolated world the two are the
+     same object, but a Firefox content script sees `globalThis` as its own
+     sandbox global and `window` as an Xray wrapper around the page's. The
+     sandbox global is the one every content script from this extension
+     shares — and the one scripting.executeScript injects into — so hanging
+     the surface there is what lets the popup find it in both browsers. */
+  globalThis.__thistle = { getText, download, stats, usage };
 })();

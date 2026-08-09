@@ -14,6 +14,31 @@
 (() => {
   "use strict";
 
+  /* Two ways in, and only one of them may take effect.
+
+     The manifest declares this file as a content script in the MAIN world,
+     which is the reliable path: it needs no injected <script> tag, so the
+     page's Content-Security-Policy has no say in it. Firefox applies the
+     page CSP to a moz-extension:// script element loaded from a content
+     script, so on a CSP-bearing site like claude.ai the old injection
+     route could be refused outright and the gauge would never fill.
+
+     Browsers that predate the `world` key ignore it and run this in the
+     content-script sandbox instead, where wrapping fetch would accomplish
+     nothing — the sandbox has its own. Extension APIs are the tell: they
+     exist in the sandbox and not in the page. Those builds fall through to
+     bridge-client's <script> injection, which lands here a second time, so
+     the marker below settles which copy owns the page. */
+  const runtime = globalThis.browser?.runtime || globalThis.chrome?.runtime;
+  if (runtime && runtime.id) return;
+
+  const FLAG = "data-th-bridge";
+  const root = document.documentElement;
+  if (root.hasAttribute(FLAG)) return;
+  /* Also how bridge-client knows the page is already served, without being
+     able to see page globals — an attribute crosses the world boundary. */
+  root.setAttribute(FLAG, "1");
+
   const MARK = "Thistle";
   const originalFetch = window.fetch;
 

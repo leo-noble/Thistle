@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Thistle",
   "version": "1.0.0",
-  "description": "Toolkit for Claude — a true-black theme for claude.ai, an inline session-usage gauge, Markdown export, and one-click context transfer to ChatGPT, Gemini or Grok.",
+  "description": "True-black theme for claude.ai, an inline session-usage gauge, Markdown export, and transfer to ChatGPT, Gemini or Grok.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -22,14 +22,23 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "thistle@local.extension",
-      "strict_min_version": "115.0"
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     },
     "gecko_android": {
-      "strict_min_version": "120.0"
+      "strict_min_version": "128.0"
     }
   },
   "permissions": ["storage", "scripting", "activeTab"],
   "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content/bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://claude.ai/*"],
       "css": ["content/base.css"],

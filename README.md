@@ -10,9 +10,9 @@
 
 ---
 
-Claude's web app is good. This makes it a little better:
+Four additions to the Claude web app:
 
-- **True-black theme.** A proper `#000` canvas with neutral elevation steps, not the washed-out grey the stock dark mode settles for. Coral stays as the one accent colour.
+- **True-black theme.** A `#000` canvas with neutral elevation steps. Coral stays as the one accent colour.
 - **Inline usage gauge.** Your session limit, right in the composer between the `+` and the model picker — percentage, a progress bar, and a countdown to reset. Click it for weekly usage too.
 - **Context transfer.** Send the current conversation to ChatGPT, Gemini, or Grok in one click, with the text already typed into their composer.
 - **Markdown export.** Copy or download the open conversation.
