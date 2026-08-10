@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Thistle",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "True-black theme for claude.ai, an inline session-usage gauge, Markdown export, and transfer to ChatGPT, Gemini or Grok.",
   "icons": {
     "16": "icons/icon16.png",
@@ -22,32 +22,53 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "thistle@local.extension",
-      "strict_min_version": "128.0",
+      "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     },
     "gecko_android": {
-      "strict_min_version": "128.0"
+      "strict_min_version": "142.0"
     }
   },
-  "permissions": ["storage", "scripting", "activeTab"],
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://claude.ai/*"],
-      "js": ["content/bridge.js"],
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "content/bridge.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://claude.ai/*"],
-      "css": ["content/base.css"],
-      "js": ["content/apply-theme.js", "content/mark.js"],
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "css": [
+        "content/base.css"
+      ],
+      "js": [
+        "content/apply-theme.js",
+        "content/mark.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://claude.ai/*"],
-      "css": ["content/usage.css"],
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "css": [
+        "content/usage.css"
+      ],
       "js": [
         "content/bridge-client.js",
         "content/usage.js",
@@ -62,14 +83,20 @@
         "https://gemini.google.com/*",
         "https://grok.com/*"
       ],
-      "js": ["content/receiver.js"],
+      "js": [
+        "content/receiver.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["content/bridge.js"],
-      "matches": ["https://claude.ai/*"]
+      "resources": [
+        "content/bridge.js"
+      ],
+      "matches": [
+        "https://claude.ai/*"
+      ]
     }
   ]
 }

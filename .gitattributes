@@ -12,6 +12,7 @@ README.md         export-ignore
 .gitattributes    export-ignore
 .gitignore        export-ignore
 .claude/          export-ignore
+docs/             export-ignore
 tools/            export-ignore
 icons/generate.py export-ignore
 icons/logo512.png export-ignore

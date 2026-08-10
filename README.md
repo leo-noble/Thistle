@@ -4,7 +4,9 @@
 
 # Thistle — Toolkit for Claude
 
-**A cleaner claude.ai — true-black theme, an inline usage gauge, and one-click hand-off to other chatbots.**
+**A high-contrast dark mode for claude.ai, an inline usage gauge, and one-click hand-off to other chatbots.**
+
+<img src="docs/screenshot-theme.png" width="900" alt="claude.ai with the Thistle theme applied: a true-black canvas, coral accent, and the usage gauge sitting inside the composer">
 
 </div>
 
@@ -12,7 +14,7 @@
 
 Four additions to the Claude web app:
 
-- **True-black theme.** A `#000` canvas with neutral elevation steps. Coral stays as the one accent colour.
+- **High-contrast dark mode.** Makes the Claude web interface true black. Coral stays as the one accent colour.
 - **Inline usage gauge.** Your session limit, right in the composer between the `+` and the model picker — percentage, a progress bar, and a countdown to reset. Click it for weekly usage too.
 - **Context transfer.** Send the current conversation to ChatGPT, Gemini, or Grok in one click, with the text already typed into their composer.
 - **Markdown export.** Copy or download the open conversation.
@@ -30,7 +32,7 @@ There's no Chrome Web Store listing yet, so it installs as an unpacked extension
 Grab the latest `.zip` from the [Releases page](../../releases) and unzip it. Or, if you'd rather use git:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/thistle.git
+git clone https://github.com/leo-noble/Thistle.git
 ```
 
 Whichever you pick, **remember where the folder is** — the browser needs it to stay put. If you move or delete it later, the extension stops working. Somewhere permanent like `Documents` beats `Downloads`.
@@ -66,14 +68,12 @@ Pin the extension to your toolbar (puzzle-piece icon → pin) to reach the setti
 
 The gauge sits in the composer toolbar, just right of the `+` button:
 
-```
- +   8% ▓▓▓░░░░░░░░░░░  2h 56m      Sonnet 5  ⌄
-```
-
 - **Percentage** — how much of the current 5-hour session window you've used.
 - **Bar** — the same figure, at a glance. It turns coral past 90%.
 - **Countdown** — time until the window resets.
 - **Click it** — a panel opens with both the session and the weekly limit, each with its own reset time.
+
+<img src="docs/screenshot-usage-panel.png" width="760" alt="The usage panel open above the composer, showing current session and weekly limits with reset times">
 
 The numbers come from the same endpoint the Claude web app uses for its own limit warnings, so they match what Claude tells you. At 0% the session window hasn't opened yet and there's no reset time to show — it starts counting from your next message.
 
@@ -93,6 +93,8 @@ The toolbar popup has:
 | **Session usage** | The same figures as the inline gauge. |
 | **Transfer to** | ChatGPT / Gemini / Grok. |
 | **Export** | Copy or download the conversation as Markdown. |
+
+<img src="docs/screenshot-popup.png" width="320" alt="The Thistle toolbar popup: a high-contrast toggle, session usage percentage, transfer buttons for ChatGPT, Gemini and Grok, and copy/download export controls">
 
 ---
 
