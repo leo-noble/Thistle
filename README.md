@@ -50,11 +50,9 @@ The folder you want is the one with `manifest.json` sitting directly inside it.
 
 **Firefox**
 
-1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…**.
-3. Select the `manifest.json` file itself, not the folder.
+Thistle is on addons.mozilla.org — no manual steps needed, just install and go:
 
-> Firefox drops temporary add-ons when you close the browser, so you'll need to reload it each session. That's a Firefox restriction on unsigned extensions, not something the extension can work around.
+[**Get Thistle for Firefox**](https://addons.mozilla.org/en-US/firefox/addon/thistle-toolkit-for-claude/)
 
 ### 3. Use it
 
@@ -121,31 +119,6 @@ Settings live in `chrome.storage.local`, on your machine.
 **Transfer typed nothing.** The receiving site changed its composer markup. Open an issue naming the site.
 
 ---
-
-## Development
-
-```
-manifest.json          Manifest V3 config
-content/
-  apply-theme.js       Sets the attribute base.css keys off, at document_start
-  base.css             Palette and Claude token remap
-  mark.js              Tags the composer, chrome bars, and message wrappers
-  bridge.js            Page-context script: reads usage, watches SSE traffic
-  bridge-client.js     postMessage plumbing between content script and bridge
-  usage.js / .css      The inline gauge and its popup
-  export.js            Reads the conversation, renders Markdown
-  receiver.js          Runs on ChatGPT / Gemini / Grok, fills the composer
-popup/                 Toolbar popup
-icons/generate.py      Regenerates the icon set (needs Pillow)
-```
-
-Two notes for anyone poking at this:
-
-**`bridge.js` runs in the page, not as a content script.** A content script's `fetch` runs in an isolated world and doesn't carry the claude.ai session, so usage requests would come back unauthenticated. The bridge is injected into the page context and talks back over `window.postMessage`.
-
-**Claude's class names hash, so styling can't rely on them.** `mark.js` identifies elements structurally — geometry, computed style, DOM relationships — and tags them with `data-th-el`, which is what `base.css` actually targets. When Claude ships a redesign, `mark.js` is usually the only file that needs attention.
-
-Reload the extension from your browser's extensions page after editing, then reload the claude.ai tab.
 
 ## Credits
 
