@@ -1,0 +1,314 @@
+/* ============================================================
+   Thistle — usage.css
+   Inline session-usage gauge in Claude's composer control row: a
+   small golden ring and the percentage, and nothing else. Clicking
+   it opens the session/weekly popover; hovering gives the reset
+   time in the title. Both of those exist so the control itself can
+   stay a fixed 63px and never threaten to wrap the row it sits on.
+
+   Every colour here is relative — derived from currentColor, or
+   from the system Canvas / CanvasText pair — so the control lands
+   correctly on Claude's own light and dark palettes without
+   knowing which one is in play.
+
+   That used to be half the story. The file carried a second copy
+   of itself gated on [data-th-theme], restating each value as an
+   exact token from the extension's own dark theme. The theme is
+   gone — Claude ships its own dark mode now — and with it the
+   duplicate block. Nothing about the appearance changed: the
+   relative values were always what rendered on Claude's dark
+   palette, and the theme rules only pinned them.
+   ============================================================ */
+
+/* Sits inline in the composer's control row, immediately left of the
+   dictation button.
+
+   Fixed width by construction, and that is the point. The control is a ring
+   and a percentage and nothing else: 15px + 6px + about 26px of tabular
+   digits + 16px of padding, which is 63px at every reading from 0% to 100%.
+   Claude's control row already carries the tool buttons on the left and the
+   mic/send pair on the right, so anything here that could grow is something
+   that could push that row onto a second line — and the reset countdown that
+   used to sit beside the percentage did exactly that, ranging from 40px to
+   80px depending on the words in it. It moved to the title and the popover. */
+.th-usage {
+  /* Local palette, relative to whatever the composer already paints. */
+  --th-gauge-ink: currentColor;
+  --th-gauge-track: color-mix(in srgb, currentColor 16%, transparent);
+  --th-gauge-track-edge: color-mix(in srgb, currentColor 9%, transparent);
+  --th-gauge-hover: color-mix(in srgb, currentColor 10%, transparent);
+  --th-gauge-press: color-mix(in srgb, currentColor 18%, transparent);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  /* Matches the height Claude gives the icon buttons either side of it, so
+     the row's own align-items has nothing to correct. */
+  height: 32px;
+  padding: 0 8px;
+  margin: 0 2px;
+  /* Inherited, not stated. The gauge is a guest in Claude's toolbar and
+     should not be the one element on the row in a different typeface. */
+  font-family: inherit;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--th-gauge-ink);
+  /* Belt to the flex braces above. If Claude's row is ever `flex-wrap: wrap`,
+     a shrunk inline-flex box can still break between its own children — so
+     the ring and the percentage are pinned to one line here as well. */
+  white-space: nowrap;
+  border-radius: 8px;
+  transition: background 0.16s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-usage:hover {
+  background: var(--th-gauge-hover);
+}
+
+.th-usage__pct {
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+
+/* A ring rather than a horizontal track, matching the context meter in the
+   Claude Code app.
+
+   The old bar was an explicit 100px — chosen because flex-grow never grew
+   in this toolbar row while an explicit width moved it every time — and
+   with the percentage and countdown beside it the control came to about
+   190px. That was the whole reason it kept threatening to wrap the composer
+   toolbar onto a second line, and why the narrow-viewport rules below had
+   to shed it in stages. A 15px ring says the same thing in a twelfth of the
+   width, so the row has room again at every size. */
+.th-usage__ring {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  /* The sweep starts at twelve o'clock. A dash on a circle otherwise begins
+     at three, which reads as an off-by-a-quarter-turn bug rather than as a
+     choice. transform-origin is stated rather than left to the default: it
+     is `50% 50%` for an <svg> in HTML flow but `0 0` for elements inside the
+     fragment, and that pair is too easy to trip over later. */
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.th-usage__ring-track {
+  fill: none;
+  stroke: var(--th-gauge-track);
+  stroke-width: 2.5;
+}
+
+/* The gold is fixed rather than derived: it is the one brand mark on the
+   control and it carries on light and dark backgrounds alike. Solid, where
+   the bar used a gradient — across 2.5px of stroke a gradient resolves to a
+   flat colour anyway, and an SVG one would need a document-unique id to
+   reference, which is a collision waiting to happen in an injected
+   subtree. */
+.th-usage__ring-fill {
+  fill: none;
+  stroke: #dcaf7c;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              stroke 0.16s ease;
+}
+
+.th-usage__ring-fill[data-warn] {
+  stroke: #d97757;
+}
+
+/* ---------- Spent ---------- */
+/* Once the window is exhausted, the ring is closed and already coral from the
+   warn threshold — so on its own a spent window looks the same as a 99% one.
+   The percentage carries the difference instead, which costs nothing: the
+   digits are already there and tabular figures mean recolouring them cannot
+   shift the control by a pixel.
+
+   It used to collapse instead — the number was hidden and a phrase took its
+   place ("until 12:50 PM"). That made spent the widest state the control had,
+   at about 119px against a normal 63, which is the opposite of what a toolbar
+   under width pressure wants. claude.ai puts its own banner directly above
+   the composer at that point anyway, and the exact clock is in the title and
+   the popover. */
+.th-usage[data-spent] .th-usage__pct {
+  color: #d97757;
+}
+
+/* Popup showing weekly and session limits. Anchored to the bar control,
+   dismisses on outside click or Escape.
+
+   position is fixed, not absolute: the bar lives inside Claude's composer,
+   whose wrappers carry overflow clipping, so an absolutely-positioned panel
+   would be cut off at the composer edge. usage.js sets left/bottom from the
+   bar's rect on open.
+
+   Canvas / CanvasText are the system surface pair. Unlike currentColor they
+   are opaque, which a floating panel needs, and they follow the page's
+   color-scheme — so this is legible over Claude's light mode instead of
+   being white text on white. */
+.th-usage__popover {
+  --th-pop-bg: Canvas;
+  --th-pop-line: color-mix(in srgb, CanvasText 22%, transparent);
+
+  position: fixed;
+  width: 280px;
+  padding: 16px;
+  background: var(--th-pop-bg);
+  border: 1px solid var(--th-pop-line);
+  border-radius: 12px;
+  box-shadow: 0 18px 52px -8px rgba(0, 0, 0, 0.32),
+              0 2px 8px rgba(0, 0, 0, 0.16);
+  color: CanvasText;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 2147483000;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+  cursor: default;
+}
+
+.th-usage__popover[data-open] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Caret tying the panel to the bar. --th-arrow is the bar's centre in
+   popover-local coordinates, set by usage.js, so the point still lands on
+   the bar after the panel is clamped away from the viewport edge. */
+.th-usage__popover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: var(--th-arrow, 32px);
+  margin-left: -7px;
+  border: 7px solid transparent;
+  border-top-color: var(--th-pop-line);
+}
+
+.th-usage__popover::before {
+  content: "";
+  position: absolute;
+  top: calc(100% - 1px);
+  left: var(--th-arrow, 32px);
+  margin-left: -7px;
+  border: 7px solid transparent;
+  border-top-color: var(--th-pop-bg);
+  z-index: 1;
+}
+
+/* Flipped below the bar — happens when the viewport is too short to fit the
+   panel above, typically a phone with the keyboard raised. The caret has to
+   move to the top edge and point the other way. */
+.th-usage__popover[data-flip] {
+  transform: translateY(-4px);
+}
+
+.th-usage__popover[data-flip][data-open] {
+  transform: translateY(0);
+}
+
+.th-usage__popover[data-flip]::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--th-pop-line);
+}
+
+.th-usage__popover[data-flip]::before {
+  top: auto;
+  bottom: calc(100% - 1px);
+  border-top-color: transparent;
+  border-bottom-color: var(--th-pop-bg);
+}
+
+.th-usage__limit {
+  margin-bottom: 14px;
+}
+
+.th-usage__limit:last-child {
+  margin-bottom: 0;
+}
+
+.th-usage__limit-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.th-usage__limit-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.th-usage__limit-reset {
+  display: block;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   Narrow viewports
+
+   Almost nothing to do here, which is the payoff for the control having one
+   fixed size. The bar version ran about 190px and had to be dismantled in
+   stages to survive a phone composer row — countdown first, then the track
+   narrowed, then the track went entirely and the percentage stood alone. This
+   is 63px at every reading, so the only thing left to give back is padding.
+   ============================================================ */
+@media (max-width: 640px) {
+  .th-usage {
+    gap: 5px;
+    padding: 0 6px;
+    margin: 0;
+  }
+
+  /* Fixed 280px overflows a 360px viewport once margins are counted. */
+  .th-usage__popover {
+    width: min(280px, calc(100vw - 32px));
+  }
+}
+
+/* Below this the composer row is [+] · ring · mic · send with nothing to
+   spare, so the gauge gives up its remaining padding. The percentage stays —
+   a ring with no number reads as decoration. */
+@media (max-width: 420px) {
+  .th-usage {
+    gap: 4px;
+    padding: 0 4px;
+  }
+}
+
+/* Touch input. :hover is the only cue the control is tappable, and it
+   never fires on a touchscreen — so give the resting state a visible
+   edge instead, and grow the hit area to something a thumb can land on.
+   Keyed on coarse pointers rather than width: a touch laptop should get
+   the target too, and a narrow desktop window should not. */
+@media (pointer: coarse) {
+  .th-usage {
+    min-height: 36px;
+    background: var(--th-gauge-track-edge);
+    box-shadow: inset 0 0 0 1px var(--th-gauge-track-edge);
+  }
+
+  .th-usage:active {
+    background: var(--th-gauge-press);
+  }
+}

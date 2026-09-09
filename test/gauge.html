@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!-- Fixture for the usage gauge. Not shipped.
+
+     Mounts the real content/usage.js against a stubbed Thistle bridge and a
+     mock of Claude's composer: editor on top, one control row underneath with
+     the tool buttons left and the mic/send pair right, and the model picker
+     down in the footer row outside the composer — which is where Claude moved
+     it, and what broke the old single-selector anchor.
+
+     So this exercises three things at once: the ring rendering, the gauge
+     landing immediately left of the microphone, and the anchor cascade
+     degrading a rung at a time as those controls are taken away.
+
+     It also no longer loads content/mark.js. mark.js tagged the composer for
+     the theme's stylesheet and the gauge read that tag; both are gone, and
+     usage.js now finds the composer from its own geometry — so the fixture
+     hands it nothing but the shape it has to measure. -->
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<title>usage gauge fixture</title>
+<link rel="stylesheet" href="../content/usage.css">
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #000;
+    color: #f5f5f5;
+    font: 14px system-ui;
+    display: flex;
+    flex-direction: column;
+  }
+  main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 24px; }
+
+  /* Claude's composer card: rounded, wide, editor on top and a control row
+     underneath. usage.js climbs from the editor to the first wide ancestor
+     that also holds a button of its own, which is this element. */
+  .card {
+    width: 720px;
+    max-width: 100%;
+    margin: 0 auto;
+    border-radius: 16px;
+    background: #1c1c1c;
+    padding: 12px 14px;
+  }
+  .editor { min-height: 44px; outline: none; }
+  .row { display: flex; align-items: center; gap: 8px; min-height: 40px; flex-wrap: nowrap; }
+  .row__right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* The ring animates its sweep over 0.4s and its colour over 0.16s. Reading
+     a computed stroke mid-transition returns an interpolated value, so the
+     warn-colour assertion would compare against a blend rather than the
+     coral. Neutralised here only — the transition itself is decoration, and
+     asserting on it would be flaky rather than useful. */
+  .th-usage__ring-fill { transition: none !important; }
+  .btn {
+    height: 32px; min-width: 32px; padding: 0 10px;
+    border: 0; border-radius: 8px; background: #262626; color: #b4b4b4;
+    font: inherit; cursor: pointer;
+  }
+
+  /* The footer row, outside the card. The model picker lives here now. */
+  .footer {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    height: 34px; font-size: 12px; color: #8a8a8a;
+  }
+
+  #out { padding: 16px 24px; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
+  .stage { display: flex; align-items: center; gap: 18px; padding: 8px 24px; }
+  .stage button { font: inherit; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <div class="editor" contenteditable="true">How does this render?</div>
+      <div class="row">
+        <button class="btn" aria-label="Add content">+</button>
+        <button class="btn">Research</button>
+        <div class="row__right">
+          <!-- The gauge's anchor. Given the exact testid rather than one of
+               the looser aria-label forms, because that is the rung the
+               cascade tries first and the one claude.ai actually ships. -->
+          <button class="btn" id="mic" aria-label="Dictate button"
+                  data-testid="voice-input-button">◉</button>
+          <button class="btn" id="send" aria-label="Send message" data-testid="send-button">↑</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn" id="picker" data-testid="model-selector-dropdown"
+              aria-haspopup="menu">Sonnet 5 Max</button>
+      <span>Claude is AI and can make mistakes</span>
+    </div>
+  </main>
+
+  <div class="stage">
+    <button id="p0">0%</button>
+    <button id="p42">42%</button>
+    <button id="p95">95%</button>
+    <button id="pSpent">spent</button>
+  </div>
+
+  <pre id="out">running…</pre>
+
+  <script>
+    /* Stub only what usage.js reaches for: the bridge handshake, the poll,
+       and the event subscription. No network, no page-world injection.
+
+       Handlers are captured rather than dropped so the fixture can push
+       readings through the same th:limit path claude.ai's SSE stream uses,
+       which means updateBar() is exercised for real instead of reimplemented
+       here. */
+    globalThis.__handlers = {};
+    globalThis.Thistle = {
+      injectBridgeOnce: () => Promise.resolve(true),
+      bridge: {
+        on(name, fn) {
+          (globalThis.__handlers[name] = globalThis.__handlers[name] || []).push(fn);
+        },
+        requestUsage: () => Promise.resolve(null),
+      },
+    };
+    globalThis.__emit = function (name, payload) {
+      for (const fn of globalThis.__handlers[name] || []) fn(payload);
+    };
+  </script>
+
+  <script>
+    (function () {
+      function load(src) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement("script");
+          s.src = src + "?t=" + Date.now() + "-" + Math.random();
+          s.onload = resolve;
+          s.onerror = reject;
+          document.body.appendChild(s);
+        });
+      }
+      load("../content/usage.js").then(function () { return load("gauge-assert.js"); });
+    })();
+  </script>
+</body>
+</html>

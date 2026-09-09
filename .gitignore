@@ -1,0 +1,12 @@
+# Build output. tools/package.sh writes the Chrome and Firefox archives here;
+# they are generated from the tracked sources on every release, so committing
+# them would only ever duplicate what the tree already says.
+dist/
+
+# macOS
+.DS_Store
+
+# Editor / tooling scratch
+node_modules/
+*.log
+.claude/.cc-writes/
