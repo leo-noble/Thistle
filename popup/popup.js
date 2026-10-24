@@ -15,8 +15,10 @@ const el = {
   usageStatus: document.getElementById("usageStatus"),
   usageRing: document.getElementById("usageRing"),
   usagePct: document.getElementById("usagePct"),
-  usageWhat: document.getElementById("usageWhat"),
   usageReset: document.getElementById("usageReset"),
+  weeklyRow: document.getElementById("weeklyRow"),
+  weeklyFill: document.getElementById("weeklyFill"),
+  weeklyPct: document.getElementById("weeklyPct"),
   contextHint: document.getElementById("contextHint"),
   toast: document.getElementById("toast"),
   tabCards: Array.from(document.querySelectorAll("[data-needs-tab]")),
@@ -39,16 +41,20 @@ const RING_C = 2 * Math.PI * RING_R;
 el.usageRing.setAttribute("stroke-dasharray", String(RING_C));
 el.usageRing.setAttribute("stroke-dashoffset", String(RING_C));
 
+/* Mirrors content/usage.js: a past reset formats as nothing (the window has
+   rolled over), and past a day it reads in days. */
 function formatResetTime(resetAt) {
   if (!resetAt) return "";
   const diffMs = new Date(resetAt).getTime() - Date.now();
-  if (diffMs <= 0) return "0m";
-  const totalMin = Math.round(diffMs / 60000);
+  if (!(diffMs > 0)) return "";
+  const totalMin = Math.max(1, Math.round(diffMs / 60000));
   if (totalMin < 60) return totalMin + "m";
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return h + "h " + m + "m";
+  const totalH = Math.floor(totalMin / 60);
+  if (totalH >= 24) return Math.floor(totalH / 24) + "d " + (totalH % 24) + "h";
+  return totalH + "h " + (totalMin % 60) + "m";
 }
+
+const WARN_AT = 90;
 
 /* Wall-clock form of the same instant. Mirrors the helper in content/usage.js
    so the popup, the in-page gauge, and claude.ai's own blocked notice all
@@ -73,7 +79,23 @@ function drawRing(pct) {
      broken. With round caps that lands as a single dot at twelve o'clock. */
   const swept = Math.max(shown, 1.5) / 100;
   el.usageRing.setAttribute("stroke-dashoffset", String(RING_C * (1 - swept)));
-  el.usageRing.toggleAttribute("data-warn", shown >= 90);
+  el.usageRing.toggleAttribute("data-warn", shown >= WARN_AT);
+}
+
+/* The weekly window gets its own hairline row under the dial. Hidden when
+   the payload has none — free plans don't — rather than shown empty. */
+function renderWeekly(weekly) {
+  const has = !!weekly && typeof weekly.pct === "number";
+  el.weeklyRow.hidden = !has;
+  if (!has) return;
+
+  const pct = Math.max(0, Math.min(100, weekly.pct));
+  el.weeklyFill.style.setProperty("--p", pct + "%");
+  el.weeklyPct.textContent = Math.round(pct) + "%";
+  el.weeklyRow.toggleAttribute("data-warn", pct >= WARN_AT);
+
+  const reset = formatResetTime(weekly.resetsAt);
+  el.weeklyRow.title = reset ? "Weekly limit resets in " + reset : "Weekly limit";
 }
 
 /* The page hands back the whole snapshot — { session, weekly } — not a bare
@@ -81,50 +103,38 @@ function drawRing(pct) {
    wrapper found undefined every time and the panel sat on "No data yet"
    however much usage the in-page gauge was reporting.
 
-   The weekly window goes in the row's tooltip. There is room on the status
-   line for one ring, and the 5-hour window is the one that governs the next
-   message — but the weekly figure is in the same payload and dropping it
-   outright would be throwing away a reading we already hold. */
-function renderUsage(snap) {
+   `waiting` distinguishes "no claude.ai tab" from "tab open, no reading
+   yet", which want different words under the dial. */
+function renderUsage(snap, waiting) {
   const session = snap && snap.session;
-  const weekly = snap && snap.weekly;
-
-  el.usageStatus.title = weekly && typeof weekly.pct === "number"
-    ? "Weekly: " + Math.round(weekly.pct) + "% used"
-    : "";
+  renderWeekly(snap && snap.weekly);
 
   if (!session || typeof session.pct !== "number") {
     el.usageStatus.removeAttribute("data-spent");
     el.usagePct.textContent = "—";
-    el.usageWhat.textContent = "no data yet";
-    el.usageReset.textContent = "";
+    el.usageReset.textContent = waiting ? "Waiting for Claude" : "Open claude.ai to see usage";
     drawRing(0);
     return;
   }
 
-  const pct = Math.round(session.pct);
   drawRing(session.pct);
+  el.usagePct.textContent = Math.round(session.pct) + "%";
 
-  /* Spent shows the wall clock and the wording claude.ai puts on the page,
-     so the popup and the page agree. A countdown there would be answering a
-     question the user isn't asking. */
+  /* Spent shows the wall clock, which is what claude.ai's own blocked notice
+     quotes, so the popup and the page agree. */
   if (session.spent) {
     el.usageStatus.setAttribute("data-spent", "");
     const at = formatResetClock(session.resetsAt);
-    el.usageReset.textContent = at
-      ? "Limit reached · back at " + at
-      : "Limit reached for this session";
+    el.usageReset.textContent = at ? "Limit reached · back at " + at : "Limit reached";
     return;
   }
 
   el.usageStatus.removeAttribute("data-spent");
-  el.usagePct.textContent = pct + "%";
-  el.usageWhat.textContent = "session used";
 
-  /* At 0% the API returns no resets_at — the window hasn't opened yet.
-     Blank there reads as a missing value, so say what's actually true. */
+  /* With nothing used the API returns no resets_at — the window hasn't
+     opened yet. Blank there reads as a missing value, so say what's true. */
   const reset = formatResetTime(session.resetsAt);
-  el.usageReset.textContent = reset ? "resets in " + reset : "starts with your next message";
+  el.usageReset.textContent = reset ? "Resets in " + reset : "Starts with your next message";
 }
 
 async function activeTab() {
@@ -220,8 +230,8 @@ async function refreshAvailability() {
   if (!isClaudeTab(tab)) {
     el.tabCards.forEach((card) => card.setAttribute("data-disabled", ""));
     setConnected(false, "No claude.ai tab");
-    hint("Open a claude.ai tab to export", true);
-    renderUsage(null);
+    hint("No claude.ai tab", true);
+    renderUsage(null, false);
     return;
   }
 
@@ -230,8 +240,8 @@ async function refreshAvailability() {
   if (!result.ok) {
     el.tabCards.forEach((card) => card.setAttribute("data-disabled", ""));
     setConnected(false, "Reload the Claude tab");
-    hint("Reload the Claude tab to export", true);
-    renderUsage(null);
+    hint("Reload the Claude tab", true);
+    renderUsage(null, false);
     return;
   }
 
@@ -256,8 +266,18 @@ async function refreshAvailability() {
     );
   }
 
-  const usageRes = await callPage(tab.id, "usage");
-  renderUsage(usageRes.ok ? usageRes.value : null);
+  await refreshUsage(tab.id);
+
+  /* Live while the popup is open. The page polls every 30s and folds in
+     streamed updates as replies land, so a popup opened mid-response used to
+     freeze whatever it read on open; re-reading the page's snapshot is a
+     local call, not a network one. */
+  setInterval(() => refreshUsage(tab.id), 2000);
+}
+
+async function refreshUsage(tabId) {
+  const res = await callPage(tabId, "usage").catch(() => ({ ok: false }));
+  renderUsage(res.ok ? res.value : null, true);
 }
 
 async function runTransfer(btn, target) {

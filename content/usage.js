@@ -36,15 +36,20 @@
     }
   }
 
+  /* A reset already in the past is no reset at all — the window has rolled
+     over and the next one opens with the next message — so it formats as
+     nothing rather than the "0m" that used to sit there indefinitely.
+     Past a day the weekly window reads in days; "95h 12m" was accurate and
+     unreadable. */
   function formatResetTime(resetAt) {
     if (!resetAt) return "";
     const diffMs = new Date(resetAt).getTime() - Date.now();
-    if (diffMs <= 0) return "0m";
-    const totalMin = Math.round(diffMs / 60000);
+    if (!(diffMs > 0)) return "";
+    const totalMin = Math.max(1, Math.round(diffMs / 60000));
     if (totalMin < 60) return totalMin + "m";
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    return h + "h " + m + "m";
+    const totalH = Math.floor(totalMin / 60);
+    if (totalH >= 24) return Math.floor(totalH / 24) + "d " + (totalH % 24) + "h";
+    return totalH + "h " + (totalMin % 60) + "m";
   }
 
   /* Wall-clock form of the same instant — "3:30 PM". Claude's own blocked
@@ -155,8 +160,16 @@
   function mergeWindow(prev, next) {
     if (!next) return prev;
     if (next.resetsAt || !prev) return next;
-    return { pct: next.pct, resetsAt: prev.resetsAt, spent: next.spent };
+    const kept = prev.resetsAt && new Date(prev.resetsAt).getTime() > Date.now() ? prev.resetsAt : null;
+    return { pct: next.pct, resetsAt: kept, spent: next.spent };
   }
+
+  /* What a window with no reading looks like. The usage endpoint answers
+     `five_hour: null` until the first message of a window is sent — every
+     fresh session, and every free-plan account at rest — and the gauge used
+     to treat that as "no answer yet" and sit on an em dash forever. It is
+     an answer: nothing used. */
+  const EMPTY = { pct: 0, resetsAt: null, spent: false };
 
   /* Applied to the session window on the way to the bar. If the latch is live
      the reading is forced to full and given the latch's reset instant, which
@@ -181,9 +194,11 @@
 
      The width is measured, not assumed. On narrow viewports usage.css caps
      the panel at calc(100vw - 32px), so the old hardcoded 280 overstated it
-     and the clamp below pushed the panel left of where it belonged, dragging
-     the caret off the bar with it. */
-  const POP_GAP = 12;
+     and the clamp below pushed the panel left of where it belonged.
+
+     The gap is a menu's, not a tooltip's: with no caret to bridge it, the
+     panel sits as close to the gauge as Claude's own menus sit to theirs. */
+  const POP_GAP = 8;
   const POP_EDGE = 16;
 
   function positionPopover(bar, popover) {
@@ -203,7 +218,7 @@
 
     /* Above the bar by default. If the bar sits high enough that the panel
        would run off the top — a short mobile viewport with the keyboard up —
-       flip it below and move the caret to the panel's top edge. */
+       flip it below, growing downward from the gauge instead. */
     const height = popover.getBoundingClientRect().height || 0;
     const flip = rect.top - POP_GAP - height < POP_EDGE;
 
@@ -217,12 +232,11 @@
     }
     popover.toggleAttribute("data-flip", flip);
 
-    // Caret stays on the bar's centre after the panel is clamped.
-    const arrow = Math.max(
-      14,
-      Math.min(width - 14, rect.left + rect.width / 2 - left)
-    );
-    popover.style.setProperty("--th-arrow", arrow + "px");
+    /* No caret — Claude's own menus don't draw one, and the panel reads as
+       one of them. The open animation grows out of the gauge instead, so
+       the origin is the bar's centre in panel-local coordinates. */
+    const origin = Math.max(0, Math.min(width, rect.left + rect.width / 2 - left));
+    popover.style.setProperty("--th-origin-x", origin + "px");
   }
 
   /* ---- keeping the panel on the gauge ---------------------------------
@@ -321,6 +335,11 @@
        display:none box and flash the panel wherever the previous open left
        it. */
     popover.setAttribute("data-open", "");
+    bar.setAttribute("aria-expanded", "true");
+    /* The native tooltip would otherwise hang over the panel that already
+       says everything it does. Restored on close. */
+    bar.dataset.title = bar.title;
+    bar.removeAttribute("title");
     positionPopover(bar, popover);
     track(bar, popover);
   }
@@ -329,6 +348,13 @@
     if (!popover.hasAttribute("data-open")) return;
     popover.removeAttribute("data-open");
     untrack();
+
+    const bar = popover.closest(".th-usage") || usageBar;
+    if (bar) {
+      bar.setAttribute("aria-expanded", "false");
+      if (bar.dataset.title) bar.title = bar.dataset.title;
+      delete bar.dataset.title;
+    }
 
     if (TOP_LAYER) {
       try {
@@ -407,16 +433,24 @@
     return ring;
   }
 
+  /* One window: label and figure on a line, a hairline meter under them,
+     the reset under that — the shape of Claude's own Settings › Usage
+     page, at menu scale. */
   function limitRow(which, label) {
     const row = div("th-usage__limit");
     row.dataset.window = which;
-    row.append(
-      span("th-usage__limit-label", label),
-      span("th-usage__limit-value", "—"),
-      span("th-usage__limit-reset")
-    );
+
+    const top = div("th-usage__limit-top");
+    top.append(span("th-usage__limit-label", label), span("th-usage__limit-value", "—"));
+
+    const meter = div("th-usage__meter");
+    meter.append(span("th-usage__meter-fill"));
+
+    row.append(top, meter, span("th-usage__limit-reset"));
     return row;
   }
+
+  const USAGE_PAGE = "/settings/usage";
 
   function createBar() {
     const bar = document.createElement("div");
@@ -435,11 +469,40 @@
        row. */
     const panel = div("th-usage__popover");
     if (TOP_LAYER) panel.setAttribute("popover", "manual");
-    panel.append(limitRow("session", "Current session"), limitRow("weekly", "Weekly"));
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Usage");
+
+    const head = div("th-usage__head");
+    const link = document.createElement("a");
+    link.className = "th-usage__link";
+    link.href = USAGE_PAGE;
+    link.textContent = "Details";
+    head.append(span("th-usage__title", "Usage"), link);
+
+    panel.append(head, limitRow("session", "Current session"), limitRow("weekly", "Weekly"));
+
+    /* Keyboard-reachable, which a bare div was not: it takes focus in the
+       toolbar's tab order and Enter/Space open it, like the buttons either
+       side of it. role=button rather than a <button> element because the
+       panel — with a link in it — lives inside, and interactive content
+       inside a <button> is invalid. */
+    bar.setAttribute("role", "button");
+    bar.setAttribute("tabindex", "0");
+    bar.setAttribute("aria-haspopup", "dialog");
+    bar.setAttribute("aria-expanded", "false");
+    bar.setAttribute("aria-label", "Session usage");
 
     bar.append(createRing(), span("th-usage__pct", "—"), panel);
 
     const popover = bar.querySelector(".th-usage__popover");
+
+    bar.addEventListener("keydown", (e) => {
+      if (e.target !== bar || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (popover.hasAttribute("data-open")) closePopover(popover);
+      else openPopover(bar, popover);
+    });
 
     /* The composer swallows stray clicks to focus the editor, so the toggle
        and the popover's own clicks both stop propagation — otherwise opening
@@ -483,34 +546,49 @@
 
       const valueEl = el.querySelector(".th-usage__limit-value");
       const resetEl = el.querySelector(".th-usage__limit-reset");
+      const fillEl = el.querySelector(".th-usage__meter-fill");
+
+      /* A window the account does not have — the weekly one on plans
+         without it — is left out rather than shown as an empty row. The
+         session row always stays: it is the one the gauge itself reads. */
+      el.hidden = !row.data && row.key !== "session";
 
       if (!row.data) {
         if (valueEl) valueEl.textContent = "—";
         if (resetEl) resetEl.textContent = "";
+        if (fillEl) fillEl.style.setProperty("--th-p", "0%");
+        el.removeAttribute("data-warn");
+        el.removeAttribute("data-spent");
         continue;
       }
 
-      if (valueEl) valueEl.textContent = Math.round(row.data.pct) + "% used";
+      const pct = Math.max(0, Math.min(100, row.data.pct));
+      if (valueEl) valueEl.textContent = Math.round(pct) + "%";
+      if (fillEl) fillEl.style.setProperty("--th-p", pct + "%");
+      el.toggleAttribute("data-warn", pct >= WARN_AT);
+      el.toggleAttribute("data-spent", !!row.data.spent);
+
       if (resetEl) {
         /* Three cases, in order of how much is known. Spent gets the wall
-           clock and the same wording claude.ai uses, so the popup and the
-           page agree. Otherwise a duration.
+           clock, which is what claude.ai's own blocked notice quotes.
+           Otherwise a duration.
 
-           At 0% the API returns no resets_at for the session — the window
+           With nothing used the API returns no resets_at — the window
            hasn't opened yet. Blank there reads as a missing value, so say
            what's actually true instead. */
         if (row.data.spent) {
           const at = formatResetClock(row.data.resetsAt);
-          resetEl.textContent = at ? "You can use Claude again at " + at : "Limit reached";
+          resetEl.textContent = at ? "Limit reached · back at " + at : "Limit reached";
         } else {
           const reset = formatResetTime(row.data.resetsAt);
-          resetEl.textContent = reset
-            ? "Resets in " + reset
-            : "Starts with your next message";
+          resetEl.textContent = reset ? "Resets in " + reset : "Starts with your next message";
         }
       }
     }
   }
+
+  /* Where the ring turns from Claude's clay to the warning red. */
+  const WARN_AT = 90;
 
   function updateBar(data) {
     if (!usageBar || !data) return;
@@ -529,7 +607,7 @@
          With round caps that lands as a single dot at twelve o'clock. */
       const swept = Math.max(shown, 1.5) / 100;
       ringEl.setAttribute("stroke-dashoffset", String(RING_C * (1 - swept)));
-      ringEl.toggleAttribute("data-warn", shown >= 90);
+      ringEl.toggleAttribute("data-warn", shown >= WARN_AT);
     }
 
     /* Turns the percentage coral — see usage.css. The only cue for spent that
@@ -543,17 +621,25 @@
        the native tooltip. The full sentence rather than the bare duration the
        old inline countdown used — a title has room, and "3h 0m" hanging in a
        tooltip on its own does not say what it is measuring. */
+    let title;
     if (session.spent) {
       const at = formatResetClock(session.resetsAt);
-      usageBar.title = at
+      title = at
         ? "Session limit reached — you can use Claude again at " + at
         : "Session limit reached";
     } else {
       const reset = formatResetTime(session.resetsAt);
-      usageBar.title = reset
+      title = reset
         ? Math.round(session.pct) + "% of this session used · resets in " + reset
         : Math.round(session.pct) + "% of this session used";
     }
+
+    /* While the panel is open the tooltip is parked (see openPopover), so a
+       reading that lands then updates the parked copy rather than bringing
+       the tooltip back over the panel. */
+    if (usageBar.getAttribute("aria-expanded") === "true") usageBar.dataset.title = title;
+    else usageBar.title = title;
+    usageBar.setAttribute("aria-label", title);
 
     updatePopover();
   }
@@ -592,6 +678,7 @@
      be. Every other form here carries a whole word that only the mic
      has. */
   const MIC = [
+    "#composer-dictate",
     '[data-testid="voice-input-button"]',
     '[data-testid*="dictation" i]',
     '[data-testid*="dictate" i]',
@@ -609,6 +696,7 @@
      where dictation is not offered. It sits in the same right-hand cluster,
      so the gauge lands in the same row either way. */
   const SEND = [
+    '[data-testid="chat-input-send"]',
     '[data-testid="send-button"]',
     '[data-testid*="send-button" i]',
     'button[aria-label*="send message" i]',
@@ -845,7 +933,58 @@
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
 
-    return { parent: el.parentElement, before: el };
+    const root = clusterRoot(el, box);
+    if (!root.parentElement || root.contains(usageBar)) return null;
+    return { parent: root.parentElement, before: root };
+  }
+
+  /* ---- the control's own footprint --------------------------------------
+
+     A control is no longer a direct child of the row. In the current
+     composer the dictation button sits five wrappers deep: two
+     `display: contents` segments, a split button that pairs it with the
+     microphone-picker chevron, and a stack of single-child cells in a grid
+     that overlays it with whatever replaces it mid-generation. Inserting
+     beside the button itself — what this used to do — put the gauge inside
+     the split button's rounded outline, between its two halves, and, one
+     level up, into a grid cell where it was laid over the mic.
+
+     So the anchor is climbed to the outermost element that is still only
+     this control: up through wrappers that hold nothing else laid out,
+     through the split group, and no further than the first horizontal flex
+     row in which it has a laid-out neighbour. That row is the toolbar, and
+     the climbed element is what the gauge goes in front of. */
+  const SPLIT = '[class*="group/split"], [role="group"]';
+
+  function isRow(el) {
+    const cs = getComputedStyle(el);
+    return (cs.display === "flex" || cs.display === "inline-flex") &&
+      !cs.flexDirection.startsWith("column");
+  }
+
+  function laidOutChildren(el) {
+    let n = 0;
+    for (const child of el.children) {
+      if (child === usageBar) continue;
+      const r = child.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) n += 1;
+    }
+    return n;
+  }
+
+  function clusterRoot(el, box) {
+    const editable = box.querySelector(EDITABLE);
+    let node = el;
+    for (let i = 0; i < 12; i += 1) {
+      const parent = node.parentElement;
+      if (!parent || parent === box || (editable && parent.contains(editable))) break;
+
+      const r = node.getBoundingClientRect();
+      const laidOut = r.width > 0 && r.height > 0;
+      if (laidOut && !parent.matches(SPLIT) && isRow(parent) && laidOutChildren(parent) >= 2) break;
+      node = parent;
+    }
+    return node;
   }
 
   function rowSlot(box) {
@@ -944,6 +1083,9 @@
           }
           updateBar(parsed);
         }
+      } else if (raw && typeof raw === "object" && "five_hour" in raw) {
+        // Present and null: the window hasn't opened. See EMPTY.
+        updateBar(exceeded ? { pct: 100, resetsAt: coerceReset(raw.resets_at), spent: true } : EMPTY);
       }
       /* Weekly limit lives in the same payload. The popup shows both session
          and weekly, so we keep both in snapshot. The SSE th:limit path only
@@ -955,6 +1097,12 @@
           snapshot.weekly = weekly;
           updatePopover();
         }
+      } else if (raw && typeof raw === "object" && "seven_day" in raw && snapshot.weekly) {
+        /* Gone from the payload — the week rolled over, or the plan changed
+           to one without it. Holding the old reading would show last week's
+           figure until the page was reloaded. */
+        snapshot.weekly = null;
+        updatePopover();
       }
     } catch (e) {
       /* best effort */

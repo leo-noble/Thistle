@@ -95,12 +95,12 @@
   check("dasharray pinned to the circumference", () => {
     return near(parseFloat(ring().getAttribute("stroke-dasharray")), C, 0.01);
   });
-  check("ring renders at 15px", () => {
+  check("ring renders at 14px", () => {
     const r = document.querySelector(".th-usage__ring").getBoundingClientRect();
-    return Math.round(r.width) === 15 && Math.round(r.height) === 15;
+    return Math.round(r.width) === 14 && Math.round(r.height) === 14;
   });
-  check("stroke is the gold", () => {
-    return getComputedStyle(ring()).stroke === "rgb(220, 175, 124)";
+  check("stroke is Claude's clay", () => {
+    return getComputedStyle(ring()).stroke === "rgb(217, 119, 87)";
   });
   check("sweep starts at twelve o'clock", () => {
     const t = getComputedStyle(document.querySelector(".th-usage__ring")).transform;
@@ -127,8 +127,10 @@
     return near(swept(), 0.95, 0.005);
   });
   check("95% flips to warn", () => ring().hasAttribute("data-warn"));
-  check("warn stroke is the coral", () => {
-    return getComputedStyle(ring()).stroke === "rgb(217, 119, 87)";
+  /* The fixture defines no --cds-* tokens, so this is the fallback red —
+     on claude.ai the same rule resolves to the page's own danger fill. */
+  check("warn stroke is the danger red", () => {
+    return getComputedStyle(ring()).stroke === "rgb(220, 60, 61)";
   });
 
   /* ---- footprint. The whole point of the ring, and the constraint the
@@ -246,12 +248,13 @@
     globalThis.__state("idle");
     await settle();
     const now = bar().getBoundingClientRect();
-    /* The whole sequence is meant to be invisible. Idle and generating put the
-       same controls to the gauge's right, so its box should not have shifted
-       across any of it. */
+    /* Back in front of the mic, on the same line. Not the same x: idle puts
+       send back to the right of the mic, and a right-aligned cluster that
+       gains a button moves everything left of it by that button's width.
+       This used to demand an unmoved box and failed on every run for that
+       reason — the gauge was where it belonged; the check was wrong. */
     return (
       bar().nextElementSibling === document.getElementById("mic") &&
-      Math.abs(now.left - was.left) <= 1 &&
       Math.abs(now.top - was.top) <= 1
     );
   });
@@ -323,11 +326,11 @@
     push(100, { exceeded: true });
     return near(swept(), 1, 0.005);
   });
-  check("spent turns the percentage coral", () => {
+  check("spent turns the percentage red", () => {
     const pct = document.querySelector(".th-usage__pct");
     return (
       bar().hasAttribute("data-spent") &&
-      getComputedStyle(pct).color === "rgb(217, 119, 87)"
+      getComputedStyle(pct).color === "rgb(241, 119, 120)"
     );
   });
   check("spent keeps the percentage readable", () => {
@@ -357,7 +360,7 @@
     const vals = [...document.querySelectorAll(".th-usage__limit-value")].map(
       (n) => n.textContent
     );
-    return vals.length === 2 && vals.every((v) => /%\s*used/.test(v));
+    return vals.length === 2 && vals.every((v) => /^\d+%$/.test(v));
   });
   check("popover is on screen", () => {
     const r = document.querySelector(".th-usage__popover").getBoundingClientRect();

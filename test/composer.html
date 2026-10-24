@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!-- Fixture for the gauge's anchoring in claude.ai's current composer. Not
+     shipped.
+
+     test/gauge.html models the composer as it was: a flex row with the mic
+     and send as direct children. The current one is shaped differently, and
+     every difference is one that broke the gauge:
+
+       - Both control clusters are absolutely positioned over the bottom of
+         the editor card, and the right-hand cluster is pointer-events: none
+         (only its buttons opt back in). A gauge inserted into it inherited
+         that and could not be clicked.
+       - Dictation is a split button — the mic and a microphone-picker chevron
+         in one rounded outline — and the mic button sits inside it behind two
+         `display: contents` segment wrappers. Anchoring beside the button put
+         the gauge inside the split, between its halves.
+       - The split sits in a stack of single-child cells in a grid that
+         overlays it with whatever replaces it; send and voice mode share
+         another grid cell the same way.
+
+     The DOM below is that structure, reduced to the elements and the layout
+     properties that matter, with the class names the page uses where they
+     are what usage.js keys on. Open it and read #out. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>composer anchoring fixture</title>
+<link rel="stylesheet" href="../content/usage.css">
+<style>
+  html { color-scheme: dark; }
+  body { margin: 0; background: #191919; color: #ffffffed; font: 14px system-ui; }
+  main { max-width: 560px; margin: 40vh auto 0; padding: 0 16px; }
+  .card { position: relative; background: #1f1f1f; border-radius: 20px; padding: 8px; }
+  .editor-wrap { padding-bottom: 36px; }
+  .editor { min-height: 28px; padding: 4px 8px; outline: none; }
+  .lead { position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; }
+  .trail { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 8px; pointer-events: none; }
+  .trail button { pointer-events: auto; }
+  .flex { display: flex; align-items: center; }
+  .gap-2 { gap: 8px; justify-content: flex-end; }
+  .grid { display: grid; align-items: center; justify-items: end; }
+  .cell { grid-column-start: 1; grid-row-start: 1; display: flex; align-items: center; }
+  .contents { display: contents; }
+  .split { position: relative; display: inline-flex; align-items: stretch; border-radius: 8px; }
+  .divider { width: 1px; align-self: stretch; background: #ffffff1a; }
+  button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px;
+           background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  button.chev { width: 14px; }
+  #out { white-space: pre; font: 12px ui-monospace, monospace; padding: 16px; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="card" id="card">
+      <div class="editor-wrap">
+        <div class="editor" contenteditable="true" data-testid="chat-input">Type / for skills</div>
+      </div>
+      <div class="lead">
+        <button data-testid="chat-input-attach" aria-label="Add files, connectors, and more">+</button>
+      </div>
+      <div class="trail" id="trail">
+        <div class="flex gap-2" id="dictateCluster">
+          <div class="grid">
+            <div class="cell">
+              <div class="flex" id="composer-dictate">
+                <div class="split group/split" aria-label="Dictate">
+                  <div class="contents" data-cds-segment><div class="contents">
+                    <button aria-label="Dictate" id="mic">◉</button>
+                  </div></div>
+                  <span class="divider"></span>
+                  <div class="contents" data-cds-segment>
+                    <button class="chev" aria-label="Microphone">⌄</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid" id="sendCell">
+          <div class="cell"><button aria-label="Use voice mode" id="voice">⦀</button></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <div id="out">running…</div>
+
+  <script>
+    // Same stub as gauge.html: just enough bridge for usage.js to mount.
+    globalThis.__handlers = {};
+    globalThis.Thistle = {
+      injectBridgeOnce: () => Promise.resolve(true),
+      bridge: {
+        on(name, fn) {
+          (globalThis.__handlers[name] = globalThis.__handlers[name] || []).push(fn);
+        },
+        requestUsage: () => Promise.resolve(null),
+      },
+    };
+    globalThis.__emit = function (name, payload) {
+      for (const fn of globalThis.__handlers[name] || []) fn(payload);
+    };
+  </script>
+  <script src="../content/usage.js"></script>
+  <script>
+    (async function () {
+      const settle = () => new Promise((r) => setTimeout(r, 200));
+      const bar = () => document.querySelector(".th-usage");
+      const results = [];
+      async function check(name, fn) {
+        let ok = false;
+        try { ok = !!(await fn()); } catch (e) { ok = false; }
+        results.push((ok ? "PASS  " : "FAIL  ") + name);
+      }
+
+      await settle();
+      __emit("th:limit", { windows: { "5h": { utilization: 0.42, resets_at: Date.now() / 1000 + 7200 } } });
+      await settle();
+
+      await check("mounted", () => !!bar());
+      await check("not inside the split button", () => !bar().closest(".split"));
+      await check("not inside a stacked grid cell", () => !bar().closest(".grid"));
+      await check("immediately before the dictation cluster", () =>
+        bar().nextElementSibling === document.getElementById("dictateCluster"));
+      await check("in the trailing toolbar", () => bar().parentElement.id === "trail");
+      await check("left of the mic, on its line", () => {
+        const g = bar().getBoundingClientRect();
+        const m = document.getElementById("mic").getBoundingClientRect();
+        return g.right <= m.left && Math.abs(g.top + g.height / 2 - (m.top + m.height / 2)) <= 1;
+      });
+      await check("takes clicks despite the cluster's pointer-events: none", () => {
+        const g = bar().getBoundingClientRect();
+        const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+        return getComputedStyle(bar()).pointerEvents === "auto" && !!hit && bar().contains(hit);
+      });
+      await check("click opens the panel", async () => {
+        bar().click();
+        await settle();
+        return document.querySelector(".th-usage__popover").hasAttribute("data-open");
+      });
+      await check("Escape closes it", async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await settle();
+        return !document.querySelector(".th-usage__popover").hasAttribute("data-open");
+      });
+      await check("Enter on the focused gauge opens it", async () => {
+        bar().focus();
+        bar().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        await settle();
+        const open = document.querySelector(".th-usage__popover").hasAttribute("data-open");
+        const expanded = bar().getAttribute("aria-expanded") === "true";
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        return open && expanded;
+      });
+      await check("typing (mic unmounts) → holds its place", async () => {
+        const before = bar().getBoundingClientRect();
+        document.getElementById("composer-dictate").remove();
+        await settle();
+        const now = bar().getBoundingClientRect();
+        return bar().parentElement.id === "trail" && Math.abs(now.top - before.top) <= 1;
+      });
+
+      const fail = results.filter((r) => r.startsWith("FAIL")).length;
+      document.getElementById("out").textContent =
+        (fail ? fail + " FAILED, " : "") + (results.length - fail) + " passed\n\n" + results.join("\n");
+    })();
+  </script>
+</body>
+</html>
