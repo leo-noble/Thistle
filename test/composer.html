@@ -160,6 +160,71 @@
         return bar().parentElement.id === "trail" && Math.abs(now.top - before.top) <= 1;
       });
 
+      /* A trailing toolbar holding the mic and nothing else. With no
+         neighbour anywhere on the way up, the climb used to run all the way to
+         the card and insert there in block flow — drawing the ring over the
+         [+] (seen on Claude Code on the web). Rebuilt in place, as a flex
+         toolbar and as a plain block one, with the gauge taken out first so
+         it re-mounts against the new shape. */
+      const attach = document.querySelector('[data-testid="chat-input-attach"]');
+      const overlaps = (a, b) =>
+        a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      // A background tab throttles timers well past settle(), so wait for it.
+      async function until(test) {
+        for (let i = 0; i < 30 && !test(); i += 1) await settle();
+      }
+
+      async function loneMic(display) {
+        const gauge = bar();
+        gauge.remove();
+        const trail = document.getElementById("trail");
+        trail.replaceChildren();
+        trail.style.display = display;
+        const wrap = document.createElement("div");
+        if (display === "flex") wrap.className = "flex";
+        const mic = document.createElement("button");
+        mic.id = "loneMic";
+        mic.setAttribute("aria-label", "Dictate");
+        mic.textContent = "◉";
+        wrap.append(mic);
+        trail.append(wrap);
+        await until(() => gauge.isConnected);
+      }
+
+      for (const display of ["flex", "block"]) {
+        await check("lone mic (" + display + " toolbar) → mounted in the toolbar", async () => {
+          await loneMic(display);
+          return document.getElementById("trail").contains(bar());
+        });
+        await check("lone mic (" + display + " toolbar) → not over the [+]", () =>
+          !overlaps(bar().getBoundingClientRect(), attach.getBoundingClientRect()));
+        await check("lone mic (" + display + " toolbar) → left of the mic, on its line", () => {
+          const g = bar().getBoundingClientRect();
+          const m = document.getElementById("loneMic").getBoundingClientRect();
+          return g.right <= m.left + 1 && Math.abs(g.top + g.height / 2 - (m.top + m.height / 2)) <= 2;
+        });
+      }
+
+      await check("never mounted directly in the card", () => bar().parentElement.id !== "card");
+
+      /* Claude Code on the web has its own ring, so the gauge stands down on
+         /code — and that is a client-side route, so it has to notice the
+         change without a page load. The mutation is what a route change
+         brings with it. */
+      const home = location.pathname + location.search;
+      await check("on /code → removed", async () => {
+        history.pushState(null, "", "/code/session");
+        document.getElementById("card").append(document.createElement("span"));
+        await until(() => !bar());
+        return !bar();
+      });
+      await check("back from /code → mounted again", async () => {
+        history.pushState(null, "", home);
+        document.getElementById("card").append(document.createElement("span"));
+        await until(() => !!bar());
+        return !!bar() && document.getElementById("trail").contains(bar());
+      });
+
       const fail = results.filter((r) => r.startsWith("FAIL")).length;
       document.getElementById("out").textContent =
         (fail ? fail + " FAILED, " : "") + (results.length - fail) + " passed\n\n" + results.join("\n");

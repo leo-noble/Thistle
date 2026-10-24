@@ -934,7 +934,7 @@
     if (rect.width <= 0 || rect.height <= 0) return null;
 
     const root = clusterRoot(el, box);
-    if (!root.parentElement || root.contains(usageBar)) return null;
+    if (!root || !root.parentElement || root.contains(usageBar)) return null;
     return { parent: root.parentElement, before: root };
   }
 
@@ -972,30 +972,59 @@
     return n;
   }
 
+  /* Returns the element to insert in front of, or null when there is no
+     horizontal row to insert into at all.
+
+     The climb can run out before it finds a neighbour. Claude Code's
+     composer has the mic alone on the right — no send, no split, no voice
+     mode beside it — so every wrapper up to the card holds a single laid-out
+     child and the neighbour test never fires. Returning whatever the climb
+     ended on then meant inserting into the card itself, in plain block flow:
+     the gauge dropped to the card's start edge, under the absolutely
+     positioned [+] button, ring printed over the plus.
+
+     So the climb also remembers the outermost point where the parent was a
+     horizontal flex row, and falls back to that. The gauge then lands at the
+     start of the mic's own toolbar, which is the same "left of the mic" as
+     everywhere else. A parent that is not a row is never offered. */
   function clusterRoot(el, box) {
     const editable = box.querySelector(EDITABLE);
     let node = el;
+    let lastInRow = null;
     for (let i = 0; i < 12; i += 1) {
       const parent = node.parentElement;
       if (!parent || parent === box || (editable && parent.contains(editable))) break;
 
       const r = node.getBoundingClientRect();
       const laidOut = r.width > 0 && r.height > 0;
-      if (laidOut && !parent.matches(SPLIT) && isRow(parent) && laidOutChildren(parent) >= 2) break;
+      const row = laidOut && !parent.matches(SPLIT) && isRow(parent);
+      if (row && laidOutChildren(parent) >= 2) return node;
+      if (row) lastInRow = node;
       node = parent;
     }
-    return node;
+    if (lastInRow) return lastInRow;
+
+    /* No flex row anywhere on the way up — a toolbar that is a plain block
+       holding inline buttons. Beside the control in its own parent is still
+       inline with it, so that is the answer, as long as the parent is a
+       toolbar and not the card. */
+    const own = el.parentElement;
+    return own && !(editable && own.contains(editable)) && getComputedStyle(own).display !== "contents"
+      ? el
+      : null;
   }
 
   function rowSlot(box) {
     const row = toolbarRow(box);
-    return row ? { parent: row, before: rightGroup(row) } : null;
+    /* Only a horizontal row. A block container takes the gauge in plain flow
+       at its start edge — under whatever is absolutely positioned there. */
+    return row && isRow(row) ? { parent: row, before: rightGroup(row) } : null;
   }
 
   /* Rungs of the cascade, lowest is best. Named so positionBar() can tell an
      improvement from a downgrade, which is the whole of how the gauge is kept
      still while Claude rebuilds the controls around it. */
-  const RANK = { mic: 0, stop: 1, send: 2, model: 3, row: 4, composer: 5 };
+  const RANK = { mic: 0, stop: 1, send: 2, model: 3, row: 4 };
 
   function findSlot(box) {
     const at = (slot, rank) => (slot ? Object.assign(slot, { rank }) : null);
@@ -1011,9 +1040,12 @@
       at(controlSlot(box, MODEL_PICKER), RANK.model) ||
       at(rowSlot(box), RANK.row) ||
       /* Nothing measurable yet — the first frame after a route change can
-         land before layout. The composer is still the right home, so take it
-         and let the next pass refine the position. */
-      { parent: box, before: null, rank: RANK.composer }
+         land before layout. This used to fall back to appending into the
+         composer card, which is block flow: the gauge drew at the card's
+         start edge, over the absolutely positioned [+]. Not mounting is
+         better than mounting there; the observer runs again on the next
+         mutation, and layout has usually landed by then. */
+      null
     );
   }
 
@@ -1021,8 +1053,27 @@
      mounted anywhere that counts. */
   let mountedRank = Infinity;
 
+  /* Claude Code on the web draws its own usage ring in the corner of its
+     composer, so a second one there is noise. It is a client-side route
+     inside the same app — /new to /code and back without a page load — so
+     this is checked on every pass rather than once at injection, and a
+     manifest exclude_matches could not have done it. */
+  function suppressed() {
+    return /^\/code(\/|$)/.test(location.pathname);
+  }
+
   function positionBar() {
     if (!usageBar) return;
+
+    if (suppressed()) {
+      if (usageBar.isConnected) {
+        const panel = usageBar.querySelector(".th-usage__popover");
+        if (panel) closePopover(panel);
+        usageBar.remove();
+      }
+      mountedRank = Infinity;
+      return;
+    }
 
     const box = composer();
     if (!box) return;
@@ -1118,6 +1169,22 @@
   function stopPolling() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+  }
+
+  /* Coming back to the tab is when the reading matters most and is most
+     likely stale: background tabs throttle the interval, and usage spent in
+     another tab or on another device never reaches this one's stream. So
+     the moment it is looked at again it asks, rather than showing up to
+     thirty seconds of old number. Spaced so focus and visibilitychange
+     arriving together cost one request, not two. */
+  let lastWake = 0;
+
+  function pollOnReturn() {
+    if (document.visibilityState !== "visible" || !pollTimer) return;
+    const now = Date.now();
+    if (now - lastWake < 5000) return;
+    lastWake = now;
+    poll();
   }
 
   let queued = false;
@@ -1225,6 +1292,9 @@
       childList: true,
       subtree: true,
     });
+
+    document.addEventListener("visibilitychange", pollOnReturn);
+    window.addEventListener("focus", pollOnReturn);
 
     schedule();
   }

@@ -39,6 +39,10 @@
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
+  /* Only matters in a toolbar that is plain block flow rather than a flex
+     row: there inline boxes sit on the text baseline, and the gauge rode a
+     couple of pixels off the button beside it. */
+  vertical-align: middle;
   gap: 5px;
   /* Claude's control height, so the row's own align-items has nothing to
      correct. 28px when the token is missing, which is what it resolves to. */
