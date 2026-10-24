@@ -1,9 +1,9 @@
 /* ============================================================
    Thistle — usage.css
    Inline session-usage gauge in Claude's composer control row: a
-   small ring and the percentage, and nothing else. Clicking it
-   opens the session/weekly panel; hovering gives the reset time in
-   the title.
+   small ring in an icon-button square, like the one Claude Code on
+   the web shows. Clicking it opens the session/weekly panel;
+   hovering gives the percentage and reset time in the title.
 
    Claude-native by construction. claude.ai's design system exposes
    its palette as --cds-* custom properties on the root — surfaces,
@@ -19,60 +19,60 @@
    Claude's spark mark on the same page.
    ============================================================ */
 
-/* Fixed width by construction, and that is the point. A ring and a
-   percentage in tabular digits is the same width at every reading from 0%
-   to 100%, so nothing here can ever push the composer's control row onto a
-   second line. The reset time lives in the title and the panel, which have
-   room for it. */
+/* A ring and nothing else, in a square the size of Claude's own icon
+   buttons — the same control Claude Code on the web puts in its composer.
+
+   It used to be the ring plus the percentage in digits. Beside the mic and
+   voice buttons that read as a label wedged into a row of icons, the one
+   thing on the toolbar that was text. The figure is not gone: it is the
+   hover title, the accessible name, and the first line of the panel, and
+   .th-usage__pct still carries it for all of those — it is only no longer
+   painted. */
 .th-usage {
   --th-ink: var(--cds-text-secondary, color-mix(in srgb, currentColor 62%, transparent));
-  --th-ink-strong: var(--cds-text-primary, currentColor);
-  --th-track: var(--cds-border-line, color-mix(in srgb, currentColor 14%, transparent));
+  --th-track: var(--cds-border-line, color-mix(in srgb, currentColor 16%, transparent));
   --th-hover: var(--cds-fill-ghost-hover, color-mix(in srgb, currentColor 8%, transparent));
   --th-press: var(--cds-fill-ghost-selected, color-mix(in srgb, currentColor 15%, transparent));
   --th-clay: #d97757;
   --th-danger: var(--cds-fill-danger, #dc3c3d);
   --th-danger-ink: var(--cds-text-danger, #f17778);
+  --th-danger-bg: var(--cds-bg-danger, color-mix(in srgb, #dc3c3d 12%, transparent));
   --th-focus: var(--cds-fill-accent, #257de0);
 
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   /* Only matters in a toolbar that is plain block flow rather than a flex
      row: there inline boxes sit on the text baseline, and the gauge rode a
      couple of pixels off the button beside it. */
   vertical-align: middle;
-  gap: 5px;
-  /* Claude's control height, so the row's own align-items has nothing to
-     correct. 28px when the token is missing, which is what it resolves to. */
+  /* Claude's control box, square — 28px when the token is missing, which is
+     what it resolves to. */
+  width: var(--cds-h-control, 28px);
   height: var(--cds-h-control, 28px);
-  padding: 0 8px 0 6px;
-  margin: 0 2px;
+  padding: 0;
+  margin: 0;
   /* The right-hand cluster's container is pointer-events: none — it is laid
      over the editor and only its buttons take clicks. A guest inserted into
      it inherits that and silently stops being clickable. */
   pointer-events: auto;
   font-family: var(--cds-font-sans, inherit);
   font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.005em;
   line-height: 1;
   color: var(--th-ink);
-  white-space: nowrap;
   border-radius: var(--cds-radius, 8px);
   outline: none;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .th-usage:hover,
 .th-usage[aria-expanded="true"] {
   background: var(--th-hover);
-  color: var(--th-ink-strong);
 }
 
 .th-usage:active {
@@ -83,20 +83,25 @@
   box-shadow: 0 0 0 2px var(--th-focus);
 }
 
+/* Visually hidden, not display: none — it still names the reading for the
+   tests and for anything that reads the control's text. */
 .th-usage__pct {
-  flex: 0 0 auto;
-  min-width: 3ch;
-  text-align: left;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-/* A ring, the same shape as the context meter in the Claude Code app.
-   The sweep starts at twelve o'clock: a dash on a circle otherwise begins at
+/* The sweep starts at twelve o'clock: a dash on a circle otherwise begins at
    three, which reads as a bug rather than a choice. transform-origin is
    stated because it is `50% 50%` for an <svg> in HTML flow but `0 0` for
-   elements inside the fragment. */
+   elements inside the fragment. Stroke 2.25 in the 20-unit box is about
+   1.8px at this size — the weight of Claude's own icon strokes. */
 .th-usage__ring {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   transform: rotate(-90deg);
   transform-origin: center;
@@ -106,13 +111,13 @@
 .th-usage__ring-track {
   fill: none;
   stroke: var(--th-track);
-  stroke-width: 2.75;
+  stroke-width: 2.25;
 }
 
 .th-usage__ring-fill {
   fill: none;
   stroke: var(--th-clay);
-  stroke-width: 2.75;
+  stroke-width: 2.25;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s cubic-bezier(0.16, 1, 0.3, 1),
               stroke 0.15s ease;
@@ -122,9 +127,14 @@
   stroke: var(--th-danger);
 }
 
-/* Spent. The ring is already closed and red from the warn threshold, so on
-   its own a spent window looks like a 99% one; the digits carry the
-   difference, at no cost in width. */
+/* Spent. At 90% the ring is already red and nearly closed, so on its own a
+   spent window looks like a 99% one. The button takes the danger tint
+   Claude uses for its own blocked states, which costs no width. The hidden
+   digits keep their colour for the same reason they keep their text. */
+.th-usage[data-spent] {
+  background: var(--th-danger-bg);
+}
+
 .th-usage[data-spent] .th-usage__pct {
   color: var(--th-danger-ink);
 }
@@ -306,27 +316,11 @@
 }
 
 /* ---------- Narrow viewports ----------
-   The control has one fixed size, so all that is left to give back is
-   padding. */
+   The control is one icon-button square at every size; only the panel
+   needs to fit. */
 @media (max-width: 640px) {
-  .th-usage {
-    gap: 4px;
-    padding: 0 6px 0 5px;
-    margin: 0;
-  }
-
   .th-usage__popover {
     width: min(272px, calc(100vw - 32px));
-  }
-}
-
-/* Touch input. :hover never fires on a touchscreen, so the resting state
-   gets the faint fill instead, and the hit area grows to something a thumb
-   can land on. Keyed on coarse pointers rather than width. */
-@media (pointer: coarse) {
-  .th-usage {
-    min-height: 32px;
-    background: var(--th-hover);
   }
 }
 

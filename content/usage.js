@@ -1,9 +1,10 @@
 /* ============================================================
    Thistle — usage.js
    Inline session-usage gauge in the composer's control row, sitting
-   immediately left of the dictation button. A small ring, the
-   percentage, and the reset time in h/m format; click it for the
-   session and weekly breakdown.
+   immediately left of the dictation button. A small ring in an
+   icon-button square, like Claude Code's; the percentage and reset
+   time are in its title, and a click opens the session and weekly
+   breakdown.
 
    Derived from Claude Counter (MIT) — see THIRD_PARTY_NOTICES.md.
    ============================================================ */
@@ -455,16 +456,13 @@
   function createBar() {
     const bar = document.createElement("div");
     bar.className = "th-usage";
-    /* Ring, then the percentage. Nothing else, ever — that invariant is the
-       whole reason this fits on the composer's control row.
+    /* Ring, then the percentage — and the percentage is visually hidden
+       (usage.css), so what the row shows is one icon-button square, like
+       Claude Code's. Nothing else, ever: that invariant is the whole reason
+       this fits on the composer's control row.
 
-       There used to be a reset countdown here as well. It cost 40px at "3h
-       0m" and 80px at "until 11:02 AM", which took the control from 63px to
-       between 104 and 145 — and the row it lives on already holds the tool
-       buttons, the mic and send. That is what put the toolbar in danger of
-       breaking onto a second line, and the countdown was the only part of the
-       control that varied in width at all. So the time moved to the two
-       places that have room for it: the bar's own title on hover, and the
+       The reset countdown and, later, the visible digits both moved to the
+       places that have room for them: the bar's own title on hover, and the
        popover on click. Nothing was lost from the product, only from the
        row. */
     const panel = div("th-usage__popover");

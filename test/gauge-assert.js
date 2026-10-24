@@ -95,9 +95,9 @@
   check("dasharray pinned to the circumference", () => {
     return near(parseFloat(ring().getAttribute("stroke-dasharray")), C, 0.01);
   });
-  check("ring renders at 14px", () => {
+  check("ring renders at 16px", () => {
     const r = document.querySelector(".th-usage__ring").getBoundingClientRect();
-    return Math.round(r.width) === 14 && Math.round(r.height) === 14;
+    return Math.round(r.width) === 16 && Math.round(r.height) === 16;
   });
   check("stroke is Claude's clay", () => {
     return getComputedStyle(ring()).stroke === "rgb(217, 119, 87)";
@@ -141,9 +141,16 @@
      is meant to be exactly one size — ring 15 + gap 6 + two tabular digits and
      a percent sign + 16 of padding, which comes to 63 — and a check that
      allowed 90 would pass right through the countdown coming back. */
-  check("control is 72px or under", () => {
+  /* An icon-button square, like Claude Code's ring: the fixture has no
+     --cds-h-control, so the 28px fallback. */
+  check("control is a 28px square", () => {
     push(42);
-    return bar().getBoundingClientRect().width <= 72;
+    const r = bar().getBoundingClientRect();
+    return Math.round(r.width) === 28 && Math.round(r.height) === 28;
+  });
+  check("percentage is not painted, but is in the title", () => {
+    const pct = document.querySelector(".th-usage__pct").getBoundingClientRect();
+    return pct.width <= 1 && pct.height <= 1 && /^42% /.test(bar().title);
   });
   check("width does not change with the reading", () => {
     push(7);
@@ -348,7 +355,10 @@
      made the row likeliest to break at the one moment the gauge had something
      to say. */
   check("spent is the same width as any other reading", () => {
-    return bar().getBoundingClientRect().width <= 72;
+    return Math.round(bar().getBoundingClientRect().width) === 28;
+  });
+  check("spent tints the button", () => {
+    return getComputedStyle(bar()).backgroundColor !== "rgba(0, 0, 0, 0)";
   });
 
   // ---- click still opens the popover
