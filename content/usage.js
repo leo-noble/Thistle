@@ -191,8 +191,10 @@
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    /* Measurable only while displayed. It is opacity-0 and pointer-events
-       none until [data-open], never display:none, so it has a live box. */
+    /* Measured, so the panel has to be showing by the time this runs — which
+       is why openPopover() promotes it before it positions it rather than
+       after. The fallback is only for the frame where layout has not caught
+       up with a just-opened panel. */
     const width = popover.getBoundingClientRect().width || 280;
 
     let left = rect.left;
@@ -221,6 +223,120 @@
       Math.min(width - 14, rect.left + rect.width / 2 - left)
     );
     popover.style.setProperty("--th-arrow", arrow + "px");
+  }
+
+  /* ---- keeping the panel on the gauge ---------------------------------
+
+     The panel is promoted into the top layer for as long as it is open.
+
+     Not decoration. `position: fixed` resolves against the nearest ancestor
+     carrying a transform, filter or containment — not against the viewport —
+     and Claude's page shell animates a transform on the wrapper it slides
+     when the sidebar opens. With the panel sitting inside the composer, that
+     wrapper became its containing block the moment the sidebar moved, so the
+     left and bottom computed from the bar's viewport rect were suddenly being
+     resolved against a box that had itself been displaced. The panel was
+     carried off to the side of the gauge it is meant to be pointing at, and
+     no amount of arithmetic here could have corrected for it: the offset
+     depends on a transform the page owns and does not announce.
+
+     An element in the top layer has no such ancestor. Its containing block is
+     the viewport whatever the page does to its own layout, it is outside the
+     composer's overflow clipping, and it is above every stacking context on
+     the page — which the z-index in usage.css was only ever guessing at. The
+     attribute is `manual` rather than `auto` on purpose: light dismissal
+     would close the panel on the first outside pointerdown, ahead of the
+     handlers below that already implement outside-click and Escape, and the
+     two together would fight over the composer's own click swallowing. */
+  const TOP_LAYER = typeof HTMLElement.prototype.showPopover === "function";
+
+  /* Re-anchored every frame the bar moves, for as long as the panel is open.
+
+     Opening Claude's sidebar is a layout change rather than a scroll: the
+     conversation column re-flows and the composer travels with it, over an
+     animation rather than in one step. A position computed once at open time
+     is wrong for every frame of that — which is the other half of why the
+     panel ended up stranded beside a gauge that had moved out from under it.
+
+     Reading the bar's rect per frame costs one measurement of a box the page
+     is already laying out, and only while the panel is open, so it is free at
+     rest. The virtue of doing it this way is that nothing has to be
+     enumerated: the sidebar, a window resize, a scrolled transcript, a
+     toolbar that grows a button and reflows the row are all just the bar
+     having moved. */
+  let trackFrame = 0;
+  let trackedAt = "";
+
+  function untrack() {
+    if (trackFrame) cancelAnimationFrame(trackFrame);
+    trackFrame = 0;
+    trackedAt = "";
+  }
+
+  function track(bar, popover) {
+    untrack();
+
+    const step = () => {
+      if (!popover.hasAttribute("data-open")) {
+        trackFrame = 0;
+        return;
+      }
+      trackFrame = requestAnimationFrame(step);
+
+      // The composer can be rebuilt under an open panel; follow it out.
+      if (!bar.isConnected) {
+        closePopover(popover);
+        return;
+      }
+
+      const r = bar.getBoundingClientRect();
+      const at = [r.left, r.top, r.width, window.innerWidth, window.innerHeight].join();
+      if (at === trackedAt) return;
+      trackedAt = at;
+      positionPopover(bar, popover);
+    };
+
+    trackFrame = requestAnimationFrame(step);
+  }
+
+  function openPopover(bar, popover) {
+    if (popover.hasAttribute("data-open")) return;
+
+    if (TOP_LAYER) {
+      try {
+        popover.showPopover();
+      } catch (e) {
+        /* Already showing, or detached between the click and here. The
+           attribute path below still yields a usable panel either way. */
+      }
+    } else if (popover.parentElement !== document.body) {
+      /* No top layer to escape into, so at least leave the subtree whose
+         ancestors are the ones that move. */
+      document.body.append(popover);
+    }
+
+    /* Shown first, positioned second, both inside this one task — so the
+       measurement above sees a laid-out panel and the browser still paints
+       only once, at the right place. Positioning first would measure a
+       display:none box and flash the panel wherever the previous open left
+       it. */
+    popover.setAttribute("data-open", "");
+    positionPopover(bar, popover);
+    track(bar, popover);
+  }
+
+  function closePopover(popover) {
+    if (!popover.hasAttribute("data-open")) return;
+    popover.removeAttribute("data-open");
+    untrack();
+
+    if (TOP_LAYER) {
+      try {
+        popover.hidePopover();
+      } catch (e) {
+        /* Not showing. Nothing to undo. */
+      }
+    }
   }
 
   /* Built node by node rather than from an HTML string. Nothing here is
@@ -318,6 +434,7 @@
        popover on click. Nothing was lost from the product, only from the
        row. */
     const panel = div("th-usage__popover");
+    if (TOP_LAYER) panel.setAttribute("popover", "manual");
     panel.append(limitRow("session", "Current session"), limitRow("weekly", "Weekly"));
 
     bar.append(createRing(), span("th-usage__pct", "—"), panel);
@@ -326,25 +443,27 @@
 
     /* The composer swallows stray clicks to focus the editor, so the toggle
        and the popover's own clicks both stop propagation — otherwise opening
-       the popup would immediately blur it or land the caret in the prompt. */
+       the popup would immediately blur it or land the caret in the prompt.
+
+       The panel stays a DOM child of the bar even while it is rendering in
+       the top layer, so its clicks still arrive here and this guard is still
+       the thing that keeps them from re-toggling the panel shut. */
     bar.addEventListener("click", (e) => {
       if (popover.contains(e.target)) return;
       e.stopPropagation();
 
-      const isOpen = popover.hasAttribute("data-open");
-      if (!isOpen) positionPopover(bar, popover);
-
-      popover.toggleAttribute("data-open");
+      if (popover.hasAttribute("data-open")) closePopover(popover);
+      else openPopover(bar, popover);
     });
 
     popover.addEventListener("click", (e) => e.stopPropagation());
 
     document.addEventListener("click", () => {
-      popover.removeAttribute("data-open");
+      closePopover(popover);
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") popover.removeAttribute("data-open");
+      if (e.key === "Escape") closePopover(popover);
     });
 
     return bar;
@@ -496,6 +615,35 @@
     'button[aria-label*="send" i]',
   ].join(",");
 
+  /* The stop button, which is what send becomes while a response streams.
+
+     This rung is the fix for the gauge jumping to the middle of the composer
+     on submit. Claude does not merely relabel send: it swaps the control, and
+     it does not keep the dictation button mounted through every frame of the
+     handover either. So for the duration of a generation — not a frame, the
+     whole of it — MIC and SEND both failed to resolve, MODEL_PICKER has lived
+     outside the composer for several builds now, and the cascade fell all the
+     way through to the row. The row's seam anchor then placed the gauge at the
+     row's geometric midpoint, which is the middle of the composer, and put it
+     back beside the mic when the response finished. Twice a prompt.
+
+     Anchoring on stop is also what the control should do on its own terms: the
+     gauge reads on the session the response is spending, so the two belong
+     next to each other. aria-label is anchored at the start rather than
+     matched bare — "Stop" and "Stop response" both want catching, but a bare
+     substring inside the composer would also claim a "Stop dictation" that
+     sits elsewhere in the row. */
+  const STOP = [
+    '[data-testid="stop-button"]',
+    '[data-testid*="stop-button" i]',
+    '[data-testid*="stop-response" i]',
+    '[data-testid*="stop-generat" i]',
+    'button[aria-label^="stop response" i]',
+    'button[aria-label^="stop generating" i]',
+    'button[aria-label^="stop streaming" i]',
+    'button[aria-label="Stop" i]',
+  ].join(",");
+
   /* The model picker, however Claude spells it this week. Below send now
      rather than above everything: it has spent the last few builds outside
      the composer entirely, and when it is inside it sits on the left, away
@@ -636,20 +784,48 @@
     return best;
   }
 
-  /* The seam between the left-hand tools and the right-hand ones, which is
-     where the gauge used to sit. Returns the first child that has crossed
-     the row's midpoint, or null to mean "append". */
-  function rightGroup(row) {
-    const rect = row.getBoundingClientRect();
-    const mid = rect.left + rect.width / 2;
+  /* The seam between the left-hand tools and the right-hand cluster — where
+     the gauge goes when no individual control could be identified.
 
+     Found from the widest horizontal gap between consecutive controls, not by
+     cutting the row at its midpoint. The midpoint was the second half of the
+     jump-to-the-middle bug. Claude's row is [tools] … [mic][send] with the two
+     groups pushed apart by a spacer or a margin, and the first child whose
+     centre clears the halfway mark is usually that spacer — so the gauge was
+     inserted at the row's geometric centre, adrift between the two groups and
+     further adrift the wider the window got. Anchoring to the gap instead asks
+     the layout where it thinks the groups divide, which is a question that has
+     the same answer at every width.
+
+     A gap has to be worth calling a seam. Below the threshold the row is one
+     contiguous run of controls with no left/right split to find, so the
+     right-hand end of it is simply the end — null, meaning append. */
+  const SEAM_MIN_GAP = 16;
+
+  function rightGroup(row) {
+    const kids = [];
     for (const child of row.children) {
       if (child === usageBar) continue;
-      const r = child.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0) continue;
-      if (r.left + r.width / 2 >= mid) return child;
+      const rect = child.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      kids.push({ el: child, rect });
     }
-    return null;
+    if (!kids.length) return null;
+
+    // DOM order need not be visual order once a flex row starts reordering.
+    kids.sort((a, b) => a.rect.left - b.rect.left);
+
+    let seam = null;
+    let widest = SEAM_MIN_GAP;
+    for (let i = 1; i < kids.length; i += 1) {
+      const gap = kids[i].rect.left - kids[i - 1].rect.right;
+      if (gap >= widest) {
+        widest = gap;
+        seam = kids[i].el;
+      }
+    }
+
+    return seam;
   }
 
   /* Anchored to a control rather than to a container. `before` is the node
@@ -677,20 +853,34 @@
     return row ? { parent: row, before: rightGroup(row) } : null;
   }
 
+  /* Rungs of the cascade, lowest is best. Named so positionBar() can tell an
+     improvement from a downgrade, which is the whole of how the gauge is kept
+     still while Claude rebuilds the controls around it. */
+  const RANK = { mic: 0, stop: 1, send: 2, model: 3, row: 4, composer: 5 };
+
   function findSlot(box) {
+    const at = (slot, rank) => (slot ? Object.assign(slot, { rank }) : null);
+
     return (
       /* Left of the microphone — the asked-for position, and the one that
-         keeps mic and send adjacent as a pair. */
-      controlSlot(box, MIC) ||
-      controlSlot(box, SEND) ||
-      controlSlot(box, MODEL_PICKER) ||
-      rowSlot(box) ||
+         keeps mic and send adjacent as a pair. When a response is streaming
+         and both are present this is also immediately right of stop, which
+         is where the screenshots want it. */
+      at(controlSlot(box, MIC), RANK.mic) ||
+      at(controlSlot(box, STOP), RANK.stop) ||
+      at(controlSlot(box, SEND), RANK.send) ||
+      at(controlSlot(box, MODEL_PICKER), RANK.model) ||
+      at(rowSlot(box), RANK.row) ||
       /* Nothing measurable yet — the first frame after a route change can
          land before layout. The composer is still the right home, so take it
          and let the next pass refine the position. */
-      { parent: box, before: null }
+      { parent: box, before: null, rank: RANK.composer }
     );
   }
+
+  /* The rung the gauge is currently mounted on, or Infinity when it is not
+     mounted anywhere that counts. */
+  let mountedRank = Infinity;
 
   function positionBar() {
     if (!usageBar) return;
@@ -698,18 +888,42 @@
     const box = composer();
     if (!box) return;
 
+    /* Is the gauge still somewhere real? Detached, moved out of the composer,
+       or sitting in a parent that has collapsed to nothing all mean the rung
+       it was on has stopped existing, so the next slot found is an
+       improvement by definition. */
+    const parent = usageBar.parentElement;
+    const settled =
+      usageBar.isConnected &&
+      box.contains(usageBar) &&
+      !!parent &&
+      parent.getBoundingClientRect().height > 0;
+    if (!settled) mountedRank = Infinity;
+
     const slot = findSlot(box);
     if (!slot || !slot.parent) return;
 
+    /* Hold position rather than accept a worse one.
+
+       Claude rebuilds the right-hand cluster on every state change — submit
+       swaps send for stop, generation can unmount the dictation button, and in
+       between there are frames where none of them resolve at all. Moving on
+       those frames is what made the gauge visibly jump: down to the row as the
+       controls went, back up to the mic as they returned, on every prompt and
+       again on every stop. A rung is given up only when the position it
+       describes has actually stopped existing, which is what `settled`
+       decides — so a control that merely blinks costs nothing, and one that is
+       genuinely gone still degrades exactly as before. */
+    if (settled && slot.rank > mountedRank) return;
+
     // Already exactly where it belongs.
-    if (
-      usageBar.parentElement === slot.parent &&
-      usageBar.nextElementSibling === slot.before
-    ) {
+    if (parent === slot.parent && usageBar.nextElementSibling === slot.before) {
+      mountedRank = slot.rank;
       return;
     }
 
     slot.parent.insertBefore(usageBar, slot.before);
+    mountedRank = slot.rank;
   }
 
   async function poll() {
@@ -760,10 +974,10 @@
 
   let queued = false;
 
-  /* Same rAF-in-a-hidden-tab problem as tokens.js and mark.js: a background
-     tab never runs the callback, so the gauge would not mount until the tab
-     was first looked at. Racing a timer alongside it mounts the bar whether
-     or not anything is painting. */
+  /* rAF alone is not enough: a background tab never runs the callback, so a
+     Claude conversation opened in a new tab would have no gauge until the tab
+     was first looked at. Racing a timer alongside it mounts the bar whether or
+     not anything is painting. */
   function flush() {
     if (!queued) return;
     queued = false;
@@ -792,8 +1006,14 @@
        only one of them being updated. Any bar already in the document is
        from a previous run of this same code, so it is removed rather than
        adopted: its click handlers and closure state belong to a module
-       instance we can no longer reach. */
-    for (const stale of document.querySelectorAll(".th-usage")) {
+       instance we can no longer reach.
+
+       Panels are swept separately as well as with their bars. On an engine
+       without the Popover API openPopover() re-parents the panel to the body
+       to get it out from under the composer's transformed ancestors, and a
+       panel that has been through that is no longer inside the bar that owns
+       it. */
+    for (const stale of document.querySelectorAll(".th-usage, .th-usage__popover")) {
       stale.remove();
     }
 

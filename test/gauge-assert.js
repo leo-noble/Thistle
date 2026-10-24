@@ -179,24 +179,129 @@
     return Math.abs((g.top + g.bottom) / 2 - (m.top + m.bottom) / 2) <= 1;
   });
 
+  /* ---- composer state transitions.
+
+     The bug these exist for: submitting a prompt does not relabel the send
+     button, it swaps it for a stop button, and Claude does not keep the
+     dictation button mounted throughout either. Both anchors went missing at
+     once, the cascade fell through to the row, and the row's old midpoint seam
+     put the gauge in the geometric middle of the composer — then back beside
+     the mic when the response finished. Twice a prompt, and further adrift the
+     wider the window.
+
+     These run before the destructive cascade checks below, because they need
+     the composer intact. Each leaves it in a valid state for the next. */
+
+  // Where the gauge is, relative to the row: near the right end, or adrift?
+  function nearerRightEdge() {
+    const g = bar().getBoundingClientRect();
+    const row = document.querySelector(".row").getBoundingClientRect();
+    return row.right - g.right < g.left - row.left;
+  }
+
+  function order() {
+    return [...document.querySelector(".row__right").children].map(
+      (c) => c.id || c.className
+    );
+  }
+
+  check("dictation active → ring holds its place beside the mic", async () => {
+    globalThis.__state("dictating");
+    await settle();
+    return bar().nextElementSibling === document.getElementById("mic");
+  });
+  check("dictation active → ring is still on the controls' line", () => {
+    const g = bar().getBoundingClientRect();
+    const m = document.getElementById("mic").getBoundingClientRect();
+    return Math.abs((g.top + g.bottom) / 2 - (m.top + m.bottom) / 2) <= 1;
+  });
+
+  check("submitted → ring does not jump to the middle", async () => {
+    /* The frame the bug lived in: send gone, stop not yet mounted, dictation
+       torn down. Nothing in the cascade resolves, and the only right answer is
+       to not move at all. */
+    const before = bar().parentElement;
+    globalThis.__state("submitting");
+    await settle();
+    return bar().parentElement === before && nearerRightEdge();
+  });
+  check("submitted → ring stayed in the control row", () => !!bar().closest(".row"));
+
+  check("generating → ring sits between stop and the mic", async () => {
+    globalThis.__state("generating");
+    await settle();
+    /* Claude renders stop to the left of the dictation button, so anchoring on
+       the mic puts the gauge immediately right of the stopper — beside it,
+       which is where it is asked to be, and what the screenshots show. */
+    return String(order()) === String(["stop", "th-usage", "mic"]);
+  });
+  check("generating → ring is beside the stopper, not adrift", () => {
+    const g = bar().getBoundingClientRect();
+    const s = document.getElementById("stop").getBoundingClientRect();
+    return g.left - s.right < 24 && nearerRightEdge();
+  });
+
+  check("stopped → ring returns to idle without moving", async () => {
+    const was = bar().getBoundingClientRect();
+    globalThis.__state("idle");
+    await settle();
+    const now = bar().getBoundingClientRect();
+    /* The whole sequence is meant to be invisible. Idle and generating put the
+       same controls to the gauge's right, so its box should not have shifted
+       across any of it. */
+    return (
+      bar().nextElementSibling === document.getElementById("mic") &&
+      Math.abs(now.left - was.left) <= 1 &&
+      Math.abs(now.top - was.top) <= 1
+    );
+  });
+
+  check("a whole prompt cycle never re-parents the ring", async () => {
+    const home = bar().parentElement;
+    let moved = 0;
+    for (const state of ["dictating", "submitting", "generating", "idle"]) {
+      globalThis.__state(state);
+      await settle();
+      if (bar().parentElement !== home) moved += 1;
+    }
+    return moved === 0 && !!bar().closest(".row");
+  });
+
   /* ---- the anchor cascade, a rung at a time.
 
      These mutate the DOM, so they run after every position assertion above.
      Each one removes the control the previous rung anchored to and waits for
      usage.js to reposition, which is the failure the cascade exists for: a
      composer that has been rebuilt without the button we were holding on
-     to. */
-  check("no mic → falls back to send", async () => {
+     to.
+
+     What a missing control costs has changed, and deliberately. The gauge now
+     gives up a rung only when the place it is standing has actually stopped
+     existing — not merely when something better-named has gone — because
+     moving on every blink is what made it jump during a prompt. So a control
+     disappearing out from under it is a no-op where the position is still
+     valid, and a real re-home where it is not. Both are checked. */
+  check("no mic → still sits in front of send", async () => {
     document.getElementById("mic").remove();
     await settle();
     const send = document.getElementById("send");
     return bar().nextElementSibling === send && bar().parentElement === send.parentElement;
   });
-  check("no mic or send → falls back to the control row", async () => {
+  check("no mic or send → holds the cluster rather than dropping a rung", async () => {
     document.getElementById("send").remove();
     await settle();
-    // The picker is outside the composer in this layout, so the row wins.
-    return bar().parentElement.classList.contains("row");
+    /* Nothing left to anchor to, but the cluster it is in is still laid out
+       and still inside the row — so there is nothing to gain by moving and a
+       visible jump to be paid for it. */
+    return !!bar().closest(".row") && nearerRightEdge();
+  });
+  check("cluster destroyed → re-homes into the control row", async () => {
+    /* The other half of the contract. Holding position must not mean freezing:
+       when the parent goes, so does the rung, and the gauge finds the row
+       again on its own. */
+    document.querySelector(".row__right").remove();
+    await settle();
+    return bar().isConnected && bar().parentElement.classList.contains("row");
   });
   check("row fallback is stable across a re-render", async () => {
     /* The position has to survive the next mutation. It did not: toolbarRow()
@@ -204,9 +309,10 @@
        landed in the row found no row, re-parented it to the composer, and the
        pass after that put it back — a flip on every keystroke. */
     const where = bar().parentElement;
+    const next = bar().nextElementSibling;
     document.querySelector(".editor").append(document.createTextNode(" "));
     await settle();
-    return bar().parentElement === where;
+    return bar().parentElement === where && bar().nextElementSibling === next;
   });
   check("still one gauge after all of that", () => {
     return document.querySelectorAll(".th-usage").length === 1;

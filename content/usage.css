@@ -144,10 +144,15 @@
 /* Popup showing weekly and session limits. Anchored to the bar control,
    dismisses on outside click or Escape.
 
-   position is fixed, not absolute: the bar lives inside Claude's composer,
-   whose wrappers carry overflow clipping, so an absolutely-positioned panel
-   would be cut off at the composer edge. usage.js sets left/bottom from the
-   bar's rect on open.
+   position is fixed, and on open usage.js promotes the panel into the top
+   layer so that "fixed" means what it says. Inside the composer it did not:
+   a fixed box resolves against the nearest ancestor carrying a transform,
+   and Claude's shell transforms the wrapper it slides when the sidebar
+   opens — so the coordinates computed from the bar's viewport rect were
+   being resolved against a box that had itself moved, and the panel was
+   dragged off to the side of the gauge. The top layer has no such ancestor,
+   and it also clears the composer's overflow clipping and every stacking
+   context on the page.
 
    Canvas / CanvasText are the system surface pair. Unlike currentColor they
    are opaque, which a floating panel needs, and they follow the page's
@@ -158,6 +163,16 @@
   --th-pop-line: color-mix(in srgb, CanvasText 22%, transparent);
 
   position: fixed;
+  /* Undoing the three [popover] UA rules that would otherwise fight this
+     panel: `inset: 0` and `margin: auto` centre it in the viewport, and
+     `overflow: auto` clips the caret, which is drawn outside the box. Stated
+     unconditionally rather than under :popover-open because they have to hold
+     on the fallback path too, where there is no popover attribute at all.
+     Everything else the UA sets — border, padding, background, colour, width —
+     is already declared below, and author rules beat the UA sheet. */
+  inset: auto;
+  margin: 0;
+  overflow: visible;
   width: 280px;
   padding: 16px;
   background: var(--th-pop-bg);
@@ -169,10 +184,17 @@
   font-family: inherit;
   font-size: 13px;
   line-height: 1.5;
+  /* Meaningless in the top layer, which sits above everything by definition —
+     kept for the fallback path on an engine without the Popover API. */
   z-index: 2147483000;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  /* display and overlay are animated discretely so the panel can still fade
+     out: without them the top layer drops it the instant hidePopover() is
+     called and the closing transition never runs. */
+  transition: opacity 0.16s ease, transform 0.16s ease,
+              overlay 0.16s ease allow-discrete,
+              display 0.16s ease allow-discrete;
   pointer-events: none;
   cursor: default;
 }
@@ -181,6 +203,22 @@
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* Entry animation. A top-layer panel goes display:none → block on open, and a
+   transition has nothing to move from across that unless the origin is stated
+   here. usage.js sets [data-flip] in the same task as showPopover(), before
+   the first style resolution, so the flipped origin is picked up too. */
+@starting-style {
+  .th-usage__popover:popover-open {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  .th-usage__popover[data-flip]:popover-open {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 /* Caret tying the panel to the bar. --th-arrow is the bar's centre in

@@ -7,9 +7,16 @@
      down in the footer row outside the composer — which is where Claude moved
      it, and what broke the old single-selector anchor.
 
-     So this exercises three things at once: the ring rendering, the gauge
-     landing immediately left of the microphone, and the anchor cascade
-     degrading a rung at a time as those controls are taken away.
+     Around that sits Claude's page shell and a sidebar that transforms it.
+     Those exist for the popover rather than the gauge: a transformed ancestor
+     becomes the containing block for a position:fixed descendant, which is
+     what used to drag the panel away from the gauge whenever the sidebar
+     opened.
+
+     So this exercises four things at once: the ring rendering, the gauge
+     landing immediately left of the microphone, the anchor holding still while
+     Claude swaps send for stop and back, and the popover staying on the gauge
+     across a sidebar that moves the composer under it.
 
      It also no longer loads content/mark.js. mark.js tagged the composer for
      the theme's stylesheet and the gauge read that tag; both are gone, and
@@ -18,9 +25,19 @@
 <html lang="en" class="dark">
 <head>
 <meta charset="utf-8">
+<!-- claude.ai sets one, and without it a phone-sized window still lays out
+     at the 980px default — so usage.css's narrow-viewport rules could never
+     be exercised here, which is exactly where the control is under width
+     pressure. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>usage gauge fixture</title>
 <link rel="stylesheet" href="../content/usage.css">
 <style>
+  /* Declared because the popover's surface is the system Canvas/CanvasText
+     pair, which follows the used color-scheme. Without this the fixture
+     renders a white panel on its own black page — not what claude.ai shows,
+     which inherits its own declaration. */
+  html { color-scheme: dark; }
   body {
     margin: 0;
     min-height: 100vh;
@@ -31,6 +48,37 @@
     flex-direction: column;
   }
   main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 24px; }
+
+  /* Claude's page shell and its sidebar.
+
+     The shell is here because of what it does to the popover, not because the
+     gauge needs it. Claude slides the conversation column with a transform
+     when the sidebar opens, and a transformed ancestor becomes the containing
+     block for any position:fixed descendant — so the panel, which lives inside
+     the composer, stopped being positioned against the viewport and started
+     being positioned against a box that had itself just moved 260px. That is
+     the whole of the "popup gets pushed to the side" bug, and it cannot be
+     reproduced without a real transform on a real ancestor.
+
+     Declared only in the open state. `transform: translateX(0)` would create
+     the containing block just as surely as any other value, and the closed
+     case has to be genuinely untransformed for the two to differ. */
+  .shell { transition: transform 0.2s ease, width 0.2s ease; }
+  body[data-sidebar] .shell {
+    transform: translateX(260px);
+    width: calc(100% - 260px);
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 260px;
+    background: #141414;
+    border-right: 1px solid #262626;
+    transform: translateX(-260px);
+    transition: transform 0.2s ease;
+  }
+  body[data-sidebar] .sidebar { transform: translateX(0); }
 
   /* Claude's composer card: rounded, wide, editor on top and a control row
      underneath. usage.js climbs from the editor to the first wide ancestor
@@ -71,6 +119,8 @@
 </style>
 </head>
 <body>
+  <div class="sidebar"></div>
+  <div class="shell">
   <main>
     <div class="card">
       <div class="editor" contenteditable="true">How does this render?</div>
@@ -94,12 +144,15 @@
       <span>Claude is AI and can make mistakes</span>
     </div>
   </main>
+  </div>
 
   <div class="stage">
     <button id="p0">0%</button>
     <button id="p42">42%</button>
     <button id="p95">95%</button>
     <button id="pSpent">spent</button>
+    <button id="pSidebar">sidebar</button>
+    <button id="pGen">generating</button>
   </div>
 
   <pre id="out">running…</pre>
@@ -124,6 +177,65 @@
     };
     globalThis.__emit = function (name, payload) {
       for (const fn of globalThis.__handlers[name] || []) fn(payload);
+    };
+  </script>
+
+  <script>
+    /* Claude's composer states, reproduced as DOM swaps rather than as a class
+       toggle.
+
+       That distinction is the whole point. Submitting does not relabel the
+       send button, it replaces it, and the dictation button is not guaranteed
+       to survive the handover either — so there are frames in which neither
+       control exists. A fixture that toggled a class would have left both in
+       the DOM for the cascade to find, and would have reproduced nothing. */
+    globalThis.__state = (function () {
+      function make(id, label, testid, glyph) {
+        const b = document.createElement("button");
+        b.className = "btn";
+        b.id = id;
+        b.setAttribute("aria-label", label);
+        if (testid) b.setAttribute("data-testid", testid);
+        b.textContent = glyph;
+        return b;
+      }
+
+      const build = {
+        idle: () => [
+          make("mic", "Dictate button", "voice-input-button", "◉"),
+          make("send", "Send message", "send-button", "↑"),
+        ],
+        dictating: () => [
+          make("mic", "Dictate button", "voice-input-button", "◉"),
+          make("wave", "Submit dictation", "dictation-submit", "⦀"),
+          make("send", "Send message", "send-button", "↑"),
+        ],
+        /* Mid-handover: send has gone, stop is not mounted yet, dictation has
+           been torn down. One pass of this was all it took to fling the gauge
+           into the middle of the row. */
+        submitting: () => [],
+        generating: () => [
+          make("stop", "Stop response", "stop-button", "■"),
+          make("mic", "Dictate button", "voice-input-button", "◉"),
+        ],
+      };
+
+      return function (name) {
+        for (const id of ["mic", "send", "stop", "wave"]) {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        }
+        /* Appended after whatever is already there, the gauge included —
+           which is what a re-render does, and leaves usage.js to put the
+           gauge back in front of the controls on its own. */
+        const host = document.querySelector(".row__right");
+        for (const node of build[name]()) host.append(node);
+        return name;
+      };
+    })();
+
+    globalThis.__sidebar = function (open) {
+      document.body.toggleAttribute("data-sidebar", open);
     };
   </script>
 
