@@ -66,6 +66,49 @@
   // ---- mounted at all, and in the right place
   check("gauge mounted", () => !!bar());
   check("only one gauge", () => document.querySelectorAll(".th-usage").length === 1);
+
+  /* ---- the footer corner. Where Claude Code puts its ring, and the first
+     choice whenever the model picker is on a line under the composer: the
+     gauge is appended to that line, so it is the last thing on it. */
+  const footer = () => document.querySelector(".footer");
+  const picker = () => document.getElementById("picker");
+
+  check("footer → ends the model picker's line", () => {
+    return bar().parentElement === footer() && bar() === footer().lastElementChild;
+  });
+  check("footer → right of the picker, on its line", () => {
+    const g = bar().getBoundingClientRect();
+    const p = picker().getBoundingClientRect();
+    return g.left >= p.right && Math.abs(g.top + g.height / 2 - (p.top + p.height / 2)) <= 1;
+  });
+  check("footer → marked for its spacing", () => bar().hasAttribute("data-footer"));
+  check("footer → a whole prompt cycle never moves it", async () => {
+    const home = bar().parentElement;
+    const at = bar().getBoundingClientRect().left;
+    for (const state of ["dictating", "submitting", "generating", "idle"]) {
+      globalThis.__state(state);
+      await settle();
+      if (bar().parentElement !== home || Math.abs(bar().getBoundingClientRect().left - at) > 1) return false;
+    }
+    return true;
+  });
+  check("footer → panel opens from the corner and stays on screen", async () => {
+    bar().click();
+    await settle();
+    const r = document.querySelector(".th-usage__popover").getBoundingClientRect();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    return r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+  });
+
+  /* Every check after this one is the fallback: a layout with no picker
+     under the composer, where the gauge goes back beside the mic. Taking the
+     picker away must move it — the footer row outliving its picker is not
+     a reason to stay. */
+  check("no picker → leaves the footer for the composer", async () => {
+    picker().remove();
+    for (let i = 0; i < 30 && !bar().closest(".card"); i += 1) await settle();
+    return !!bar().closest(".card") && !bar().hasAttribute("data-footer");
+  });
   /* The composer is found by geometry now, not by a tag mark.js left behind,
      so this asserts the climb stopped on Claude's card — not on the editor
      below it and not on <main> above it. */
@@ -99,8 +142,9 @@
     const r = document.querySelector(".th-usage__ring").getBoundingClientRect();
     return Math.round(r.width) === 16 && Math.round(r.height) === 16;
   });
-  check("stroke is Claude's clay", () => {
-    return getComputedStyle(ring()).stroke === "rgb(217, 119, 87)";
+  // No --cds-* tokens in the fixture, so the accent's fallback blue.
+  check("stroke is the accent blue", () => {
+    return getComputedStyle(ring()).stroke === "rgb(37, 125, 224)";
   });
   check("sweep starts at twelve o'clock", () => {
     const t = getComputedStyle(document.querySelector(".th-usage__ring")).transform;

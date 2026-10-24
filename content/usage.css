@@ -15,8 +15,8 @@
    so a build that renames the tokens degrades to "close" rather
    than to unstyled.
 
-   The one fixed colour is the ring's clay, #d97757 — the colour of
-   Claude's spark mark on the same page.
+   The ring is the page's own accent (--cds-fill-accent, Claude's blue) —
+   the colour of the ring Claude Code on the web shows in the same spot.
    ============================================================ */
 
 /* A ring and nothing else, in a square the size of Claude's own icon
@@ -33,7 +33,7 @@
   --th-track: var(--cds-border-line, color-mix(in srgb, currentColor 16%, transparent));
   --th-hover: var(--cds-fill-ghost-hover, color-mix(in srgb, currentColor 8%, transparent));
   --th-press: var(--cds-fill-ghost-selected, color-mix(in srgb, currentColor 15%, transparent));
-  --th-clay: #d97757;
+  --th-fill: var(--cds-fill-accent, #257de0);
   --th-danger: var(--cds-fill-danger, #dc3c3d);
   --th-danger-ink: var(--cds-text-danger, #f17778);
   --th-danger-bg: var(--cds-bg-danger, color-mix(in srgb, #dc3c3d 12%, transparent));
@@ -83,6 +83,13 @@
   box-shadow: 0 0 0 2px var(--th-focus);
 }
 
+/* On the footer line the gauge follows text-label controls ("Auto"), whose
+   own padding is tighter than an icon button's, so it gets a little air —
+   the gap Claude Code leaves between "High" and its ring. */
+.th-usage[data-footer] {
+  margin-inline-start: 6px;
+}
+
 /* Visually hidden, not display: none — it still names the reading for the
    tests and for anything that reads the control's text. */
 .th-usage__pct {
@@ -116,7 +123,7 @@
 
 .th-usage__ring-fill {
   fill: none;
-  stroke: var(--th-clay);
+  stroke: var(--th-fill);
   stroke-width: 2.25;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s cubic-bezier(0.16, 1, 0.3, 1),
@@ -285,7 +292,7 @@
   color: var(--cds-text-danger, #dc3c3d);
 }
 
-/* Hairline meter, the same clay as the ring. */
+/* Hairline meter, the same accent as the ring. */
 .th-usage__meter {
   position: relative;
   height: 4px;
@@ -300,7 +307,7 @@
   width: var(--th-p, 0%);
   min-width: 4px;
   border-radius: inherit;
-  background: #d97757;
+  background: var(--cds-fill-accent, #257de0);
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease;
 }
 

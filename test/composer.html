@@ -225,6 +225,49 @@
         return !!bar() && document.getElementById("trail").contains(bar());
       });
 
+      /* The footer line under the card, as claude.ai draws it: tools on the
+         left, the disclaimer in the middle, and on the right a cluster of the
+         model picker (wrapped twice) and "Auto". That cluster is where Claude
+         Code puts its ring, and it outranks every composer position. */
+      const foot = document.createElement("div");
+      foot.className = "flex";
+      foot.style.cssText = "justify-content: space-between; margin-top: 8px; font-size: 13px;";
+      foot.innerHTML =
+        '<div class="flex"><button aria-label="Dictate" id="footMic">◉</button></div>' +
+        "<span>Claude is AI and can make mistakes.</span>" +
+        '<div class="flex"><div class="flex" id="chinEnd" style="gap: 2px">' +
+        '<div class="flex"><span style="display: inline-flex">' +
+        '<button data-testid="model-selector-dropdown" aria-haspopup="menu" style="width: auto; padding: 0 6px">Sonnet 5.5 Medium</button>' +
+        "</span></div>" +
+        '<div class="grid"><span style="display: inline-flex; padding: 0 8px" id="auto">Auto</span></div>' +
+        "</div></div>";
+      document.querySelector("main").append(foot);
+
+      await check("footer → moves to the end of the picker's cluster", async () => {
+        await until(() => !!bar() && bar().parentElement && bar().parentElement.id === "chinEnd");
+        return bar().parentElement.id === "chinEnd" && bar() === bar().parentElement.lastElementChild;
+      });
+      await check("footer → right of Auto, on its line", () => {
+        const g = bar().getBoundingClientRect();
+        const a = document.getElementById("auto").getBoundingClientRect();
+        return g.left >= a.right && Math.abs(g.top + g.height / 2 - (a.top + a.height / 2)) <= 1;
+      });
+      await check("footer → still clickable", () => {
+        const g = bar().getBoundingClientRect();
+        const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+        return !!hit && bar().contains(hit);
+      });
+      await check("footer → hidden on /code too", async () => {
+        history.pushState(null, "", "/code/session");
+        document.getElementById("card").append(document.createElement("span"));
+        await until(() => !bar());
+        const gone = !bar();
+        history.pushState(null, "", home);
+        document.getElementById("card").append(document.createElement("span"));
+        await until(() => !!bar());
+        return gone && bar().parentElement.id === "chinEnd";
+      });
+
       const fail = results.filter((r) => r.startsWith("FAIL")).length;
       document.getElementById("out").textContent =
         (fail ? fail + " FAILED, " : "") + (results.length - fail) + " passed\n\n" + results.join("\n");

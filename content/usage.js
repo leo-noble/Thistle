@@ -1022,16 +1022,67 @@
   /* Rungs of the cascade, lowest is best. Named so positionBar() can tell an
      improvement from a downgrade, which is the whole of how the gauge is kept
      still while Claude rebuilds the controls around it. */
-  const RANK = { mic: 0, stop: 1, send: 2, model: 3, row: 4 };
+  /* ---- the footer corner ----------------------------------------------
+
+     Where Claude Code on the web puts its own ring: the far end of the line
+     under the composer, after the model picker — "Opus 5.5 High ◯". The
+     chat composer carries the same line ("Sonnet 5.5 Medium  Auto"), so the
+     gauge ends it the same way.
+
+     It is also the steadiest place on the page. The composer's own control
+     row is rebuilt on every keystroke and every submit — send swaps for
+     stop, the mic unmounts — and where its controls sit differs between
+     layouts (some put the mic and voice buttons down on this line instead).
+     The model picker is on this line in all of them and does not move while
+     a reply streams.
+
+     The picker is found page-wide, because the line sits outside the
+     composer card, but only one that is laid out on a line just below (or
+     inside) the composer counts — not one in a settings panel or a menu. The
+     row is the first horizontal flex row on the way up where the picker has
+     a laid-out neighbour; the gauge is appended to it, so it is always the
+     last thing on the line. */
+  const FOOTER_REACH = 120;
+
+  function footerRow(picker, editable) {
+    let node = picker;
+    for (let i = 0; i < 10; i += 1) {
+      const parent = node.parentElement;
+      if (!parent || parent === document.body || (editable && parent.contains(editable))) return null;
+      const r = node.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && isRow(parent) && laidOutChildren(parent) >= 2) return parent;
+      node = parent;
+    }
+    return null;
+  }
+
+  function footerSlot(box) {
+    const editable = box.querySelector(EDITABLE);
+    const card = box.getBoundingClientRect();
+
+    for (const picker of document.querySelectorAll(MODEL_PICKER)) {
+      if ((usageBar && usageBar.contains(picker)) || picker.closest(DIALOG)) continue;
+      const r = picker.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (r.top < card.top || r.top > card.bottom + FOOTER_REACH) continue;
+      if (r.right < card.left || r.left > card.right) continue;
+
+      const row = footerRow(picker, editable);
+      if (row) return { parent: row, before: null };
+    }
+    return null;
+  }
+
+  const RANK = { footer: 0, mic: 1, stop: 2, send: 3, model: 4, row: 5 };
 
   function findSlot(box) {
     const at = (slot, rank) => (slot ? Object.assign(slot, { rank }) : null);
 
     return (
-      /* Left of the microphone — the asked-for position, and the one that
-         keeps mic and send adjacent as a pair. When a response is streaming
-         and both are present this is also immediately right of stop, which
-         is where the screenshots want it. */
+      at(footerSlot(box), RANK.footer) ||
+      /* No footer line — left of the microphone, which keeps mic and send
+         adjacent as a pair. When a response is streaming and both are present
+         this is also immediately right of stop. */
       at(controlSlot(box, MIC), RANK.mic) ||
       at(controlSlot(box, STOP), RANK.stop) ||
       at(controlSlot(box, SEND), RANK.send) ||
@@ -1083,7 +1134,13 @@
     const parent = usageBar.parentElement;
     const settled =
       usageBar.isConnected &&
-      box.contains(usageBar) &&
+      /* The footer line is outside the composer card, so a gauge there is
+         still home even though the card does not contain it. */
+      (box.contains(usageBar) ||
+        /* …but only while the picker it ends the line after is still on
+           that line. The row can outlive the picker, and holding position
+           in it would strand the gauge beside nothing. */
+        (mountedRank === RANK.footer && !!parent && !!parent.querySelector(MODEL_PICKER))) &&
       !!parent &&
       parent.getBoundingClientRect().height > 0;
     if (!settled) mountedRank = Infinity;
@@ -1112,6 +1169,8 @@
 
     slot.parent.insertBefore(usageBar, slot.before);
     mountedRank = slot.rank;
+    // usage.css spaces the gauge off the footer's last item; see there.
+    usageBar.toggleAttribute("data-footer", slot.rank === RANK.footer);
   }
 
   async function poll() {

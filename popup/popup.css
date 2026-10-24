@@ -9,9 +9,9 @@
    cannot read the page's tokens (it is a separate document), so
    these are copies; the in-page gauge reads the live ones.
 
-   Two accents only: Claude's clay for the usage reading, and the
-   design system's blue for focus. Everything else is ink on
-   surface.
+   Two accents only: the design system's blue for the usage reading
+   and focus — the same blue as the in-page ring — and Claude's clay
+   for the brand mark. Everything else is ink on surface.
 
    Spacing is a 4px scale. A value off it is an optical correction
    and says so.
@@ -181,7 +181,7 @@ body {
 
 .usage__ring-fill {
   fill: none;
-  stroke: var(--clay);
+  stroke: var(--focus);
   stroke-width: 1.6;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.6s var(--ease), stroke var(--dur) ease;
@@ -252,7 +252,7 @@ body {
   width: var(--p, 0%);
   min-width: 4px;
   border-radius: inherit;
-  background: var(--clay);
+  background: var(--focus);
   transition: width 0.6s var(--ease);
 }
 
