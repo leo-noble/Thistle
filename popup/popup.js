@@ -54,6 +54,8 @@ function formatResetTime(resetAt) {
   return totalH + "h " + (totalMin % 60) + "m";
 }
 
+// Same stages as content/usage.js: blue, yellow from 75%, red from 90%.
+const CAUTION_AT = 75;
 const WARN_AT = 90;
 
 /* Wall-clock form of the same instant. Mirrors the helper in content/usage.js
@@ -80,6 +82,7 @@ function drawRing(pct) {
   const swept = Math.max(shown, 1.5) / 100;
   el.usageRing.setAttribute("stroke-dashoffset", String(RING_C * (1 - swept)));
   el.usageRing.toggleAttribute("data-warn", shown >= WARN_AT);
+  el.usageRing.toggleAttribute("data-caution", shown >= CAUTION_AT && shown < WARN_AT);
 }
 
 /* The weekly window gets its own hairline row under the dial. Hidden when
@@ -93,6 +96,7 @@ function renderWeekly(weekly) {
   el.weeklyFill.style.setProperty("--p", pct + "%");
   el.weeklyPct.textContent = Math.round(pct) + "%";
   el.weeklyRow.toggleAttribute("data-warn", pct >= WARN_AT);
+  el.weeklyRow.toggleAttribute("data-caution", pct >= CAUTION_AT && pct < WARN_AT);
 
   const reset = formatResetTime(weekly.resetsAt);
   el.weeklyRow.title = reset ? "Weekly limit resets in " + reset : "Weekly limit";

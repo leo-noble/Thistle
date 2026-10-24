@@ -556,6 +556,7 @@
         if (resetEl) resetEl.textContent = "";
         if (fillEl) fillEl.style.setProperty("--th-p", "0%");
         el.removeAttribute("data-warn");
+        el.removeAttribute("data-caution");
         el.removeAttribute("data-spent");
         continue;
       }
@@ -564,6 +565,7 @@
       if (valueEl) valueEl.textContent = Math.round(pct) + "%";
       if (fillEl) fillEl.style.setProperty("--th-p", pct + "%");
       el.toggleAttribute("data-warn", pct >= WARN_AT);
+      el.toggleAttribute("data-caution", pct >= CAUTION_AT && pct < WARN_AT);
       el.toggleAttribute("data-spent", !!row.data.spent);
 
       if (resetEl) {
@@ -586,6 +588,9 @@
   }
 
   /* Where the ring turns from Claude's clay to the warning red. */
+  /* Three stages, as Claude Code's own ring has: the accent blue, the
+     warning yellow from three-quarters spent, the danger red from 90%. */
+  const CAUTION_AT = 75;
   const WARN_AT = 90;
 
   function updateBar(data) {
@@ -606,6 +611,7 @@
       const swept = Math.max(shown, 1.5) / 100;
       ringEl.setAttribute("stroke-dashoffset", String(RING_C * (1 - swept)));
       ringEl.toggleAttribute("data-warn", shown >= WARN_AT);
+      ringEl.toggleAttribute("data-caution", shown >= CAUTION_AT && shown < WARN_AT);
     }
 
     /* Turns the percentage coral — see usage.css. The only cue for spent that
@@ -1056,9 +1062,120 @@
     return null;
   }
 
+  /* ---- the rest of the footer line -----------------------------------
+
+     Claude Code's line reads "Default  Repo  Auto ·········· Opus 5.5 High ◯":
+     tools and modes on the left, and on the right only the model, its effort
+     and the ring. The chat line puts "Auto" in the right-hand cluster,
+     between the picker and the gauge. So whatever shares the picker's
+     cluster is carried over to the left side, after the line's own tools.
+
+     Carried visually, never moved. These nodes are React's: if one is
+     re-parented, React's next removeChild on its old parent throws and takes
+     the page down with it. So the elements are only marked — attributes
+     React does not render and so never clears — and usage.css does the
+     moving: the wrappers between the cluster and the line, and the line's
+     leading tool group, become `display: contents`, which makes all of their
+     children items of the one line, and `order` sequences those items as
+     tools, the carried controls, whatever stretches in the middle, the model,
+     the ring.
+
+     Every mark is recorded so it can all be undone the moment the gauge
+     leaves the footer, and the whole arrangement is rebuilt if any marked
+     node is replaced. */
+  const FLAT = "data-th-flat";
+  const ORDER = "data-th-order";
+  let footerLayout = null;
+
+  function laidOut(el) {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  function undoFooterLayout() {
+    if (!footerLayout) return;
+    for (const el of footerLayout.marked) {
+      el.removeAttribute(FLAT);
+      el.removeAttribute(ORDER);
+    }
+    footerLayout = null;
+  }
+
+  function footerLayoutIntact(row) {
+    return (
+      !!footerLayout &&
+      footerLayout.row === row &&
+      row.isConnected &&
+      footerLayout.marked.every((el) => el.isConnected)
+    );
+  }
+
+  function applyFooterLayout(row, picker, editable) {
+    if (footerLayoutIntact(row)) return;
+    undoFooterLayout();
+    footerLayout = { row, marked: [] };
+    const mark = (el, attr, value) => {
+      el.setAttribute(attr, value);
+      footerLayout.marked.push(el);
+    };
+
+    const pickerItem = Array.from(row.children).find((c) => c.contains(picker));
+    const carried = Array.from(row.children).filter(
+      (c) => c !== usageBar && c !== pickerItem && laidOut(c)
+    );
+    if (!pickerItem || !carried.length) return;
+
+    /* The line: the first horizontal row above the cluster that holds
+       something besides the branch the cluster is on. */
+    let branch = row;
+    let line = row.parentElement;
+    for (let i = 0; i < 6 && line; i += 1) {
+      if (line === document.body || (editable && line.contains(editable))) return;
+      if (isRow(line) && laidOutChildren(line) >= 2) break;
+      branch = line;
+      line = line.parentElement;
+    }
+    if (!line || !isRow(line)) return;
+
+    const lead = Array.from(line.children).find((c) => c !== branch && laidOut(c));
+
+    for (let n = row; n; n = n.parentElement) {
+      mark(n, FLAT, "");
+      if (n === branch) break;
+    }
+    for (const c of line.children) {
+      if (c !== branch && c !== lead) mark(c, ORDER, "rest");
+    }
+    if (lead && isRow(lead)) {
+      /* Opened up too, so the carried controls can sit among its tools
+         rather than after its spacer — whatever in it stretches (the gap
+         the disclaimer sits in) is sequenced after them. */
+      mark(lead, FLAT, "");
+      for (const c of lead.children) {
+        mark(c, ORDER, parseFloat(getComputedStyle(c).flexGrow) > 0 ? "rest" : "lead");
+      }
+    } else if (lead) {
+      mark(lead, ORDER, "lead");
+    }
+    for (const c of carried) mark(c, ORDER, "carried");
+    mark(pickerItem, ORDER, "model");
+  }
+
   function footerSlot(box) {
     const editable = box.querySelector(EDITABLE);
     const card = box.getBoundingClientRect();
+
+    /* Once the line is rearranged the cluster is display: contents and no
+       longer measures as a row, so it is recognised by having been chosen,
+       for as long as the picker is still in it. */
+    if (footerLayout && footerLayoutIntact(footerLayout.row)) {
+      const picker = footerLayout.row.querySelector(MODEL_PICKER);
+      if (picker) return { parent: footerLayout.row, before: null, picker };
+    }
+    /* Broken — Claude replaced a node in it. The marks left on the rest
+       would make the line measure as nothing, so they come off before the
+       line is looked for again. */
+    undoFooterLayout();
 
     for (const picker of document.querySelectorAll(MODEL_PICKER)) {
       if ((usageBar && usageBar.contains(picker)) || picker.closest(DIALOG)) continue;
@@ -1068,7 +1185,7 @@
       if (r.right < card.left || r.left > card.right) continue;
 
       const row = footerRow(picker, editable);
-      if (row) return { parent: row, before: null };
+      if (row) return { parent: row, before: null, picker };
     }
     return null;
   }
@@ -1115,6 +1232,7 @@
     if (!usageBar) return;
 
     if (suppressed()) {
+      undoFooterLayout();
       if (usageBar.isConnected) {
         const panel = usageBar.querySelector(".th-usage__popover");
         if (panel) closePopover(panel);
@@ -1132,21 +1250,30 @@
        it was on has stopped existing, so the next slot found is an
        improvement by definition. */
     const parent = usageBar.parentElement;
+    /* The footer line is outside the composer card, so a gauge there is home
+       without the card containing it — but only while the picker it ends the
+       line after is still in its cluster. The row can outlive the picker, and
+       holding position in it would strand the gauge beside nothing. Its
+       height is not asked: a rearranged cluster is display: contents and
+       measures as nothing while laying out perfectly well. */
+    const inFooter =
+      mountedRank === RANK.footer && !!parent && !!parent.querySelector(MODEL_PICKER);
     const settled =
       usageBar.isConnected &&
-      /* The footer line is outside the composer card, so a gauge there is
-         still home even though the card does not contain it. */
-      (box.contains(usageBar) ||
-        /* …but only while the picker it ends the line after is still on
-           that line. The row can outlive the picker, and holding position
-           in it would strand the gauge beside nothing. */
-        (mountedRank === RANK.footer && !!parent && !!parent.querySelector(MODEL_PICKER))) &&
       !!parent &&
-      parent.getBoundingClientRect().height > 0;
+      (inFooter || (box.contains(usageBar) && parent.getBoundingClientRect().height > 0));
     if (!settled) mountedRank = Infinity;
 
     const slot = findSlot(box);
     if (!slot || !slot.parent) return;
+
+    const footer = () => {
+      if (mountedRank === RANK.footer && slot.picker) {
+        applyFooterLayout(slot.parent, slot.picker, box.querySelector(EDITABLE));
+      } else {
+        undoFooterLayout();
+      }
+    };
 
     /* Hold position rather than accept a worse one.
 
@@ -1164,13 +1291,15 @@
     // Already exactly where it belongs.
     if (parent === slot.parent && usageBar.nextElementSibling === slot.before) {
       mountedRank = slot.rank;
+      footer();
       return;
     }
 
     slot.parent.insertBefore(usageBar, slot.before);
     mountedRank = slot.rank;
-    // usage.css spaces the gauge off the footer's last item; see there.
+    // usage.css spaces and orders the gauge on the footer line; see there.
     usageBar.toggleAttribute("data-footer", slot.rank === RANK.footer);
+    footer();
   }
 
   async function poll() {

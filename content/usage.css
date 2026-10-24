@@ -16,7 +16,8 @@
    than to unstyled.
 
    The ring is the page's own accent (--cds-fill-accent, Claude's blue) —
-   the colour of the ring Claude Code on the web shows in the same spot.
+   the colour of the ring Claude Code on the web shows in the same spot —
+   then its warning yellow from 75% and its danger red from 90%.
    ============================================================ */
 
 /* A ring and nothing else, in a square the size of Claude's own icon
@@ -34,6 +35,7 @@
   --th-hover: var(--cds-fill-ghost-hover, color-mix(in srgb, currentColor 8%, transparent));
   --th-press: var(--cds-fill-ghost-selected, color-mix(in srgb, currentColor 15%, transparent));
   --th-fill: var(--cds-fill-accent, #257de0);
+  --th-caution: var(--cds-fill-warning, #fbb315);
   --th-danger: var(--cds-fill-danger, #dc3c3d);
   --th-danger-ink: var(--cds-text-danger, #f17778);
   --th-danger-bg: var(--cds-bg-danger, color-mix(in srgb, #dc3c3d 12%, transparent));
@@ -87,7 +89,35 @@
    own padding is tighter than an icon button's, so it gets a little air —
    the gap Claude Code leaves between "High" and its ring. */
 .th-usage[data-footer] {
+  order: 4;
   margin-inline-start: 6px;
+}
+
+/* The footer line, rearranged to read like Claude Code's: tools and the
+   controls carried over from the model's cluster ("Auto") on the left, then
+   whatever stretches, then the model and effort, then the ring. usage.js
+   marks Claude's own elements and never moves them; these rules are the
+   whole of the move. !important because each one is up against a utility
+   class on the same element. */
+[data-th-flat] {
+  display: contents !important;
+}
+
+[data-th-order="lead"] {
+  order: 0 !important;
+}
+
+[data-th-order="carried"] {
+  order: 1 !important;
+}
+
+[data-th-order="rest"] {
+  order: 2 !important;
+}
+
+[data-th-order="model"] {
+  order: 3 !important;
+  margin-inline-start: auto !important;
 }
 
 /* Visually hidden, not display: none — it still names the reading for the
@@ -128,6 +158,10 @@
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s cubic-bezier(0.16, 1, 0.3, 1),
               stroke 0.15s ease;
+}
+
+.th-usage__ring-fill[data-caution] {
+  stroke: var(--th-caution);
 }
 
 .th-usage__ring-fill[data-warn] {
@@ -309,6 +343,10 @@
   border-radius: inherit;
   background: var(--cds-fill-accent, #257de0);
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease;
+}
+
+.th-usage__limit[data-caution] .th-usage__meter-fill {
+  background: var(--cds-fill-warning, #fbb315);
 }
 
 .th-usage__limit[data-warn] .th-usage__meter-fill {

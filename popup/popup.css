@@ -28,6 +28,7 @@
   --text-2: #ffffff91;
   --text-3: #ffffff66;
   --clay: #d97757;
+  --caution: #fbb315;
   --danger: #dc3c3d;
   --danger-ink: #f17778;
   --focus: #257de0;
@@ -187,6 +188,7 @@ body {
   transition: stroke-dashoffset 0.6s var(--ease), stroke var(--dur) ease;
 }
 
+.usage__ring-fill[data-caution] { stroke: var(--caution); }
 .usage__ring-fill[data-warn] { stroke: var(--danger); }
 
 .usage__pct {
@@ -256,6 +258,7 @@ body {
   transition: width 0.6s var(--ease);
 }
 
+.weekly[data-caution] .weekly__fill { background: var(--caution); }
 .weekly[data-warn] .weekly__fill { background: var(--danger); }
 
 .weekly__pct {

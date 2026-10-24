@@ -176,6 +176,17 @@
   check("warn stroke is the danger red", () => {
     return getComputedStyle(ring()).stroke === "rgb(220, 60, 61)";
   });
+  /* The middle stage, between the accent and the red: from 75%, the page's
+     warning yellow (its fallback here). */
+  check("80% is the caution yellow, not warn", () => {
+    push(80);
+    return ring().hasAttribute("data-caution") && !ring().hasAttribute("data-warn") &&
+      getComputedStyle(ring()).stroke === "rgb(251, 179, 21)";
+  });
+  check("74% is still the accent", () => {
+    push(74);
+    return !ring().hasAttribute("data-caution") && getComputedStyle(ring()).stroke === "rgb(37, 125, 224)";
+  });
 
   /* ---- footprint. The whole point of the ring, and the constraint the
      control is built around: it has to sit on the mic's line and stay there.
