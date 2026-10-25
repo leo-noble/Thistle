@@ -1130,6 +1130,41 @@
     );
   }
 
+  /* Would making this element display: contents unhook something?
+
+     An element with no box cannot be a containing block. So if it is the
+     anchor of something positioned — an absolutely placed child that is
+     sized or offset against it — that child is re-anchored to the next
+     positioned ancestor up, and goes wherever that puts it. That is what
+     sent the "Claude is AI and can make mistakes" line, centred inside its
+     wrapper with inset: 0, flying up above the composer.
+
+     So an element is only opened up if nothing inside it is positioned
+     against it: it forms no containing block at all, or it forms one and has
+     no absolutely or fixed positioned descendant to use it. Anything else
+     leaves the whole arrangement undone; the line stays as Claude draws it
+     and "Auto" stays where Claude puts it. Losing a nicety is better than
+     displacing something. */
+  function formsContainingBlock(cs) {
+    return (
+      cs.position !== "static" ||
+      cs.transform !== "none" ||
+      cs.filter !== "none" ||
+      cs.perspective !== "none" ||
+      (cs.contain && cs.contain !== "none" && cs.contain !== "style") ||
+      /transform|filter|perspective/.test(cs.willChange || "")
+    );
+  }
+
+  function safeToOpen(el) {
+    if (!formsContainingBlock(getComputedStyle(el))) return true;
+    for (const d of el.querySelectorAll("*")) {
+      const p = getComputedStyle(d).position;
+      if (p === "absolute" || p === "fixed") return false;
+    }
+    return true;
+  }
+
   function applyFooterLayout(row, picker, editable) {
     if (footerLayoutIntact(row)) return;
     undoFooterLayout();
@@ -1159,14 +1194,19 @@
 
     const lead = Array.from(line.children).find((c) => c !== branch && laidOut(c));
 
+    const chain = [];
     for (let n = row; n; n = n.parentElement) {
-      mark(n, FLAT, "");
+      chain.push(n);
       if (n === branch) break;
     }
+    const openLead = !!lead && isRow(lead);
+    if (!chain.every(safeToOpen) || (openLead && !safeToOpen(lead))) return;
+
+    for (const n of chain) mark(n, FLAT, "");
     for (const c of line.children) {
       if (c !== branch && c !== lead) mark(c, ORDER, "rest");
     }
-    if (lead && isRow(lead)) {
+    if (openLead) {
       /* Opened up too, so the carried controls can sit among its tools
          rather than after its spacer — whatever in it stretches (the gap
          the disclaimer sits in) is sequenced after them. */

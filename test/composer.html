@@ -296,6 +296,56 @@
         return fresh.getAttribute("data-th-order") === "carried" && box("auto").right <= box("disclaimer").left;
       });
 
+      /* The same footer, with the disclaimer where claude.ai may well keep it:
+         absolutely positioned, centred on the line, inside a wrapper that is
+         position: relative. display: contents gives that wrapper no box, so
+         an absolute child of it is re-anchored to the next positioned
+         ancestor up — and the disclaimer jumps off the line to wherever
+         that is (above the composer, on a real page). The rearrangement has
+         to see that and leave such a layout alone. */
+      document.getElementById("footLine").remove();
+      const foot2 = document.createElement("div");
+      foot2.className = "flex";
+      foot2.id = "footLine2";
+      foot2.style.cssText = "gap: 8px; margin-top: 8px; font-size: 13px";
+      /* The next positioned ancestor up, as on the real page: far from the
+         line, so an anchor lost to display: contents lands somewhere obvious. */
+      document.querySelector("main").style.position = "relative";
+      foot2.innerHTML =
+        '<div class="flex" id="footLead2" style="flex: 1 1 0; min-width: 0; gap: 4px; position: relative; height: 28px">' +
+        '<button aria-label="Dictate">◉</button>' +
+        '<span id="disclaimer2" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none">Claude is AI and can make mistakes.</span>' +
+        "</div>" +
+        '<div class="flex" id="footRight2" style="flex-shrink: 0">' +
+        '<div class="flex" id="chinEnd2" style="gap: 2px">' +
+        '<div class="flex" id="modelItem2"><span style="display: inline-flex">' +
+        '<button data-testid="model-selector-dropdown" aria-haspopup="menu" style="width: auto; padding: 0 6px">Sonnet 5.5 Medium</button>' +
+        "</span></div>" +
+        '<div class="grid" id="autoItem2"><span style="display: inline-flex; padding: 0 8px" id="auto2">Auto</span></div>' +
+        "</div></div>";
+      document.querySelector("main").append(foot2);
+      const r2 = (id) => document.getElementById(id).getBoundingClientRect();
+
+      await check("positioned disclaimer → gauge still ends the picker's cluster", async () => {
+        await until(() => !!bar() && bar().parentElement && bar().parentElement.id === "chinEnd2");
+        return !!bar() && bar().parentElement.id === "chinEnd2";
+      });
+      await check("positioned disclaimer → stays on its line", async () => {
+        await settle();
+        await settle();
+        const d = r2("disclaimer2");
+        const line = r2("footLine2");
+        return d.top >= line.top - 1 && d.bottom <= line.bottom + 1;
+      });
+      await check("positioned disclaimer → still inside its own slot, left of the model", () => {
+        const d = r2("disclaimer2");
+        const slot = r2("footLead2");
+        return d.left >= slot.left - 1 && d.right <= slot.right + 1 && d.right <= r2("modelItem2").left + 1;
+      });
+      await check("positioned disclaimer → nothing flattened that would unhook it", () => {
+        return !document.getElementById("footLead2").hasAttribute("data-th-flat");
+      });
+
       const fail = results.filter((r) => r.startsWith("FAIL")).length;
       document.getElementById("out").textContent =
         (fail ? fail + " FAILED, " : "") + (results.length - fail) + " passed\n\n" + results.join("\n");
