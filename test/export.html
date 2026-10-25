@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<!-- Fixture for export.js. Not shipped.
+
+     A long conversation in the shape claude.ai renders it — user turns,
+     assistant turns with screen-reader headings and tool-status lines and a
+     usage banner mixed in with the prose — then the two things the popup asks
+     of it: stats(), every time it opens, and getText(), when you click.
+
+     Checks that the cheap size count agrees with the real export, that the
+     export itself still reads the right turns, and that stats() stays fast on
+     a conversation this long. ?src= points at another copy of export.js, to
+     compare a change with what it replaces. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>export fixture</title>
+<style>
+  body { font: 14px system-ui; background: #191919; color: #eee; margin: 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #out { white-space: pre; font: 12px ui-monospace, monospace; padding: 16px; }
+</style>
+</head>
+<body>
+  <main><div data-testid="transcript-list" id="list"></div></main>
+  <div id="out">running…</div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const TURNS = Number(q.get("turns")) || 300;
+    const list = document.getElementById("list");
+    let html = "";
+    for (let i = 0; i < TURNS; i += 1) {
+      html += '<div data-testid="user-message"><p>Question ' + i + ' about the thing, in a few words.</p></div>' +
+        '<div data-testid="user-message-actions"></div>';
+      let body = "";
+      for (let j = 0; j < 8; j += 1) body += "<p>Reply " + i + " paragraph " + j + " with several plain words to count.</p>";
+      body += '<ul><li>one</li><li>two</li></ul><pre><code class="language-js">const x = ' + i + ';</code></pre>' +
+        '<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>';
+      html += '<div data-testid="assistant-message">' +
+        '<h3 class="sr-only">Claude responded: heading</h3>' +
+        '<div><div class="group/status"><span>Read memory</span><button>x</button><span class="sr-only" role="status">Read memory</span></div>' +
+        '<div class="prose"><div class="standard-markdown">' + body + "</div></div>" +
+        (i % 50 === 0 ? '<div id="message-warning" data-prose-box>Stopped by a usage limit. Try again<button>Try again</button></div>' : "") +
+        '</div><div id="message-actions"><button>c</button><time>Oct 15</time></div></div>';
+    }
+    list.innerHTML = html;
+    document.title = "Long conversation - Claude";
+    document.write('<script src="' + (q.get("src") || "../content/export.js") + '"><\/script>');
+  </script>
+  <script>
+    (function () {
+      const results = [];
+      const check = (name, ok, detail) => results.push((ok ? "PASS  " : "FAIL  ") + name + (detail ? "  (" + detail + ")" : ""));
+      const page = globalThis.__thistle;
+
+      const t0 = performance.now();
+      const s = page.stats();
+      const statsMs = performance.now() - t0;
+
+      const t1 = performance.now();
+      const text = page.getText("markdown");
+      const fullMs = performance.now() - t1;
+
+      const bodyOnly = text.split("\n").filter((l) => !/^(# |_Exported|## (User|Claude)$)/.test(l)).join(" ");
+      /* Words, not Markdown: table pipes, rules, list dashes and fences are
+         syntax the export adds, and counting them would call a table of four
+         cells fifteen words. */
+      const realWords = (bodyOnly.replace(/```\w*/g, " ").match(/\S+/g) || []).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+
+      check("stats → counts every turn", s.turns === TURNS * 2, s.turns + " of " + TURNS * 2);
+      check("stats → title is the conversation's", s.title === "Long conversation", s.title);
+      check("stats → words within 3% of the real export", Math.abs(s.words - realWords) / realWords <= 0.03, s.words + " vs " + realWords);
+      check("export → alternates user and Claude", (text.match(/^## User$/gm) || []).length === TURNS && (text.match(/^## Claude$/gm) || []).length === TURNS);
+      check("export → no screen-reader headings or banners", !/Claude responded|Stopped by a usage limit|Read memory|Try again/.test(text));
+      check("export → code keeps its fence and language", /```js\nconst x = 0;\n```/.test(text));
+      check("export → tables survive", /\| a \| b \|\n\| --- \| --- \|\n\| 1 \| 2 \|/.test(text));
+      check("stats → fast on a long conversation", statsMs <= 150, statsMs.toFixed(1) + " ms");
+
+      const fail = results.filter((r) => r.startsWith("FAIL")).length;
+      document.getElementById("out").textContent =
+        (fail ? fail + " FAILED, " : "ALL ") + (results.length - fail) + " passed\n\n" + results.join("\n") +
+        "\n\nstats() " + statsMs.toFixed(1) + " ms · full export " + fullMs.toFixed(1) + " ms · " +
+        document.querySelectorAll("*").length + " elements";
+    })();
+  </script>
+</body>
+</html>

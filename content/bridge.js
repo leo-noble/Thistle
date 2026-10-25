@@ -135,14 +135,27 @@
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r\n|\r|\n/);
-        buffer = lines.pop() || "";
+
+        /* Split only up to the last line break, and only when there is one.
+           A single event can be hundreds of kilobytes — a file or artifact
+           being written arrives as one — and it reaches here in many chunks.
+           Splitting the growing buffer on every chunk made that quadratic,
+           for a line that is going to be thrown away anyway. */
+        const cut = Math.max(buffer.lastIndexOf("\n"), buffer.lastIndexOf("\r"));
+        if (cut < 0) continue;
+        const lines = buffer.slice(0, cut).split(/\r\n|\r|\n/);
+        buffer = buffer.slice(cut + 1);
+
         for (const line of lines) {
-          if (!line.startsWith("data:")) continue;
-          const raw = line.slice(5).trim();
-          if (!raw) continue;
+          /* One event in the whole stream matters to this extension, and
+             this runs inside the page for the length of every reply. Parsing
+             every streamed delta as JSON — most of them carrying text or file
+             contents — was main-thread work on the same thread claude.ai is
+             rendering the reply on. A substring test costs next to nothing;
+             only the rare event that names the limit is parsed. */
+          if (!line.startsWith("data:") || line.indexOf("message_limit") === -1) continue;
           try {
-            const json = JSON.parse(raw);
+            const json = JSON.parse(line.slice(5).trim());
             if (json && json.type === "message_limit" && json.message_limit) {
               post("th:limit", json.message_limit);
             }

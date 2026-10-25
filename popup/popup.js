@@ -239,7 +239,13 @@ async function refreshAvailability() {
     return;
   }
 
-  const result = await callPage(tab.id, "stats");
+  /* Both reads at once. They are independent calls into the same tab, and
+     running them one after the other made the popup wait for the sum of two
+     round trips before it showed anything. */
+  const [result, usageRes] = await Promise.all([
+    callPage(tab.id, "stats"),
+    callPage(tab.id, "usage").catch(() => ({ ok: false })),
+  ]);
 
   if (!result.ok) {
     el.tabCards.forEach((card) => card.setAttribute("data-disabled", ""));
@@ -270,13 +276,20 @@ async function refreshAvailability() {
     );
   }
 
-  await refreshUsage(tab.id);
+  renderUsage(usageRes.ok ? usageRes.value : null, true);
 
   /* Live while the popup is open. The page polls every 30s and folds in
      streamed updates as replies land, so a popup opened mid-response used to
      freeze whatever it read on open; re-reading the page's snapshot is a
-     local call, not a network one. */
-  setInterval(() => refreshUsage(tab.id), 2000);
+     local call, not a network one.
+
+     Every three seconds rather than two, and not at all while the popup is
+     hidden: each tick is a script injected into the Claude tab, which is a
+     page that is busy enough without being interrupted for a number that
+     moves a few times an hour. */
+  setInterval(() => {
+    if (!document.hidden) refreshUsage(tab.id);
+  }, 3000);
 }
 
 async function refreshUsage(tabId) {

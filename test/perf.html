@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!-- Cost fixture for the gauge. Not shipped.
+
+     claude.ai changes its DOM constantly: every streamed token touches the
+     transcript, and the composer is re-rendered on every keystroke. usage.js
+     watches the whole body for changes, so whatever its placement pass costs,
+     it pays on every one of them — which is the difference between a gauge
+     nobody notices and a page that stutters while Claude is answering.
+
+     This builds a page the size of a long conversation, with the composer and
+     the footer line under it, then streams into the transcript for a few
+     hundred frames and counts what the gauge did in that time: passes, time in
+     them, and the calls that force the browser to lay the page out again.
+
+     Open it and read #out. The thresholds are generous; they exist to catch a
+     regression that scans the page on every change, not to grade micro-wins. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gauge cost fixture</title>
+<link rel="stylesheet" href="../content/usage.css">
+<style>
+  html { color-scheme: dark; }
+  body { margin: 0; background: #191919; color: #ffffffed; font: 14px system-ui; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .turn p { margin: 0 0 8px; }
+  .card { position: relative; background: #1f1f1f; border-radius: 20px; padding: 8px; margin-top: 16px; }
+  .editor-wrap { padding-bottom: 36px; }
+  .editor { min-height: 28px; padding: 4px 8px; outline: none; }
+  .lead { position: absolute; bottom: 8px; left: 8px; display: flex; }
+  .trail { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 8px; pointer-events: none; }
+  .trail button { pointer-events: auto; }
+  .flex { display: flex; align-items: center; }
+  button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+  #out { white-space: pre; font: 12px ui-monospace, monospace; padding: 16px; }
+</style>
+</head>
+<body>
+  <main>
+    <div id="transcript" data-testid="transcript-list"></div>
+    <div class="card" id="card">
+      <div class="editor-wrap"><div class="editor" contenteditable="true" data-testid="chat-input">Reply</div></div>
+      <div class="lead"><button data-testid="chat-input-attach" aria-label="Add files, connectors, and more">+</button></div>
+      <div class="trail"><div class="flex" id="composer-dictate"><button aria-label="Dictate" id="mic">◉</button></div></div>
+    </div>
+    <div class="flex" id="footLine" style="gap: 8px; margin-top: 8px; font-size: 13px">
+      <div class="flex" id="footLead" style="flex: 1 1 0; min-width: 0; gap: 4px">
+        <button aria-label="Project" id="footTool">▢</button>
+        <span id="disclaimer" style="flex: 1 1 0; text-align: center">Claude is AI and can make mistakes.</span>
+      </div>
+      <div class="flex" id="footRight" style="flex-shrink: 0">
+        <div class="flex" id="chinEnd" style="gap: 2px">
+          <div class="flex" id="modelItem"><span style="display: inline-flex">
+            <button data-testid="model-selector-dropdown" aria-haspopup="menu" style="width: auto; padding: 0 6px">Sonnet 5.5 Medium</button>
+          </span></div>
+          <div class="grid" id="autoItem"><span style="display: inline-flex; padding: 0 8px" id="auto">Auto</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <div id="out">running…</div>
+
+  <script>
+    globalThis.__handlers = {};
+    globalThis.Thistle = {
+      injectBridgeOnce: () => Promise.resolve(true),
+      bridge: {
+        on(name, fn) { (globalThis.__handlers[name] = globalThis.__handlers[name] || []).push(fn); },
+        requestUsage: () => Promise.resolve(null),
+      },
+    };
+    globalThis.__emit = (name, payload) => { for (const fn of globalThis.__handlers[name] || []) fn(payload); };
+
+    /* A long conversation: thousands of elements, a good share of them
+       carrying the data-testid attributes claude.ai puts on nearly everything,
+       because a selector that substring-matches attributes pays for every one
+       of them. */
+    (function () {
+      const t = document.getElementById("transcript");
+      const turns = Number(new URLSearchParams(location.search).get("turns")) || 150;
+      for (let i = 0; i < turns; i += 1) {
+        const turn = document.createElement("div");
+        turn.className = "turn";
+        turn.setAttribute("data-testid", i % 2 ? "assistant-message" : "user-message");
+        let html = "";
+        for (let j = 0; j < 12; j += 1) {
+          html += '<div data-testid="transcript-row-' + j + '"><p data-index="' + j + '">Paragraph ' + j + ' of turn ' + i + '</p><span class="x" data-testid="message-actions"></span></div>';
+        }
+        turn.innerHTML = html;
+        t.append(turn);
+      }
+    })();
+
+    /* Counted, not timed: a call count is the same on every machine, and each
+       of these is a point where the browser has to stop and lay out. */
+    const counts = { rect: 0, style: 0, qsa: 0, qsaMs: 0 };
+    for (const [proto, name, key] of [
+      [Element.prototype, "getBoundingClientRect", "rect"],
+      [Element.prototype, "querySelectorAll", "qsa"],
+      [Document.prototype, "querySelectorAll", "qsa"],
+      [Element.prototype, "querySelector", "qs"],
+      [Document.prototype, "querySelector", "qs"],
+    ]) {
+      const orig = proto[name];
+      proto[name] = key === "qs"
+        ? function (...a) { const t = performance.now(); try { return orig.apply(this, a); } finally { counts.qsaMs += performance.now() - t; } }
+        : key === "qsa"
+        ? function (...a) { counts[key] += 1; const t = performance.now(); try { return orig.apply(this, a); } finally { counts.qsaMs += performance.now() - t; } }
+        : function (...a) { counts[key] += 1; return orig.apply(this, a); };
+    }
+    const origStyle = window.getComputedStyle;
+    window.getComputedStyle = function (...a) { counts.style += 1; return origStyle.apply(this, a); };
+
+    /* Time inside usage.js's own frame callbacks. The stream below runs on
+       timers, so the only rAF callbacks on this page are the gauge's. */
+    let passes = 0, inPasses = 0;
+    const origRaf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => origRaf((ts) => {
+      const t0 = performance.now();
+      try { cb(ts); } finally { inPasses += performance.now() - t0; passes += 1; }
+    });
+    globalThis.__counts = () => ({ ...counts, passes, inPasses });
+  </script>
+  <script>
+    /* ?scenario=footer (default) | nopicker | nocomposer, and ?src= to point at
+       another copy of usage.js, which is how a change is compared with what
+       it replaces. Each scenario is a state the gauge cannot settle in as
+       happily as the first: no model picker on the footer line, so every
+       pass has to run the whole cascade; no composer at all (a settings page,
+       a project list), so every pass has to go looking for one. */
+    const q = new URLSearchParams(location.search);
+    const scenario = q.get("scenario") || "footer";
+    if (scenario === "nopicker") document.querySelector('[data-testid="model-selector-dropdown"]').remove();
+    if (scenario === "nocomposer") document.getElementById("card").remove();
+    document.write('<script src="' + (q.get("src") || "../content/usage.js") + '"><\/script>');
+  </script>
+  <script>
+    (async function () {
+      const settle = (ms) => new Promise((r) => setTimeout(r, ms || 200));
+      await settle(400);
+      __emit("th:limit", { windows: { "5h": { utilization: 0.42, resets_at: Date.now() / 1000 + 7200 } } });
+      await settle(400);
+
+      const start = globalThis.__counts();
+      const bar = () => document.querySelector(".th-usage");
+      const homeBefore = bar() && bar().parentElement;
+      const target = document.querySelector("#transcript .turn:last-child p");
+
+      /* Streaming: a token's worth of DOM change per frame, for a few hundred
+         frames, each landing in the transcript and nowhere near the composer. */
+      const FRAMES = 240;
+      const t0 = performance.now();
+      for (let i = 0; i < FRAMES; i += 1) {
+        target.append(document.createTextNode(" token" + i));
+        if (i % 6 === 0) {
+          const p = document.createElement("p");
+          p.textContent = "streamed block " + i;
+          p.setAttribute("data-testid", "stream-block");
+          document.querySelector("#transcript .turn:last-child").append(p);
+        }
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      const wall = performance.now() - t0;
+      await settle(300);
+
+      const end = globalThis.__counts();
+      const d = (k) => end[k] - start[k];
+      const rects = d("rect"), styles = d("style"), qsas = d("qsa");
+      const ms = d("inPasses");
+
+      if (scenario !== "footer") {
+        /* The thresholds below are for the footer; the other scenarios exist
+           to be read as numbers and to prove nothing is mounted wrongly. */
+        const verdicts = [];
+        if (scenario === "nocomposer") verdicts.push((bar() ? "FAIL" : "PASS") + "  no composer → nothing mounted");
+
+        /* The budget: a pass that cannot settle may not cost more than a
+           fraction of a frame's 16 ms in selector work. 1.5 spent 4.3 ms a
+           frame here on a long conversation; the bound leaves room for a slow
+           machine and still fails a return to scanning the page. */
+        const perFrame = d("qsaMs") / FRAMES;
+        verdicts.push((perFrame <= 1.5 ? "PASS" : "FAIL") + "  " + scenario + " → selector time per frame stays under budget (" + perFrame.toFixed(3) + " ms)");
+        document.getElementById("out").textContent =
+          scenario + ": " + FRAMES + " frames in " + wall.toFixed(0) + "ms · " + d("passes") + " passes · " +
+          rects + " rects (" + (rects / FRAMES).toFixed(2) + "/frame) · " + styles + " styles (" + (styles / FRAMES).toFixed(2) +
+          "/frame) · " + qsas + " queries (" + (qsas / FRAMES).toFixed(2) + "/frame) · selector time " + d("qsaMs").toFixed(1) + "ms total, " + (d("qsaMs") / FRAMES).toFixed(3) + "ms/frame · " + document.querySelectorAll("*").length + " elements\n" + verdicts.join("\n") + "\nDONE passed";
+        if (verdicts.some((v) => v.startsWith("FAIL"))) document.getElementById("out").textContent = "FAILED\n" + document.getElementById("out").textContent;
+        return;
+      }
+
+      const results = [];
+      const check = (name, ok, detail) => results.push((ok ? "PASS  " : "FAIL  ") + name + (detail ? "  (" + detail + ")" : ""));
+
+      /* Per frame, so the number does not depend on how many frames ran. The
+         bounds are loose: an idle pass is a handful of cheap reads, a scan of
+         the page is hundreds. */
+      check("transcript streaming → layout reads per frame stay low", rects / FRAMES <= 6, (rects / FRAMES).toFixed(2) + "/frame");
+      check("transcript streaming → style reads per frame stay low", styles / FRAMES <= 6, (styles / FRAMES).toFixed(2) + "/frame");
+      check("transcript streaming → no page-wide queries per frame", qsas / FRAMES <= 3, (qsas / FRAMES).toFixed(2) + "/frame");
+      check("transcript streaming → time in the gauge's passes", ms / FRAMES <= 0.5, (ms / FRAMES).toFixed(3) + " ms/frame");
+      check("transcript streaming → the gauge never moved", bar() && bar().parentElement === homeBefore && bar().parentElement.id === "chinEnd");
+
+      /* Typing: the composer re-renders on every keystroke. The gauge has to
+         notice a real change there — so this checks the cost, and that a
+         genuine rebuild is still repaired. */
+      const s2 = globalThis.__counts();
+      const editor = document.querySelector(".editor");
+      for (let i = 0; i < 120; i += 1) {
+        editor.append(document.createTextNode("k"));
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      await settle(300);
+      const e2 = globalThis.__counts();
+      check("typing → layout reads per keystroke stay low", (e2.rect - s2.rect) / 120 <= 6, ((e2.rect - s2.rect) / 120).toFixed(2) + "/key");
+
+      const gauge = bar();
+      gauge.remove();
+      for (let i = 0; i < 40 && !bar(); i += 1) await settle(100);
+      check("a removed gauge is put back", !!bar() && bar().parentElement.id === "chinEnd");
+
+      const lastBefore = bar() && bar().parentElement.lastElementChild === bar();
+      const extra = document.createElement("div");
+      extra.id = "extraItem";
+      extra.textContent = "New";
+      document.getElementById("chinEnd").insertBefore(extra, bar());
+      for (let i = 0; i < 40 && document.getElementById("extraItem").getAttribute("data-th-order") !== "carried"; i += 1) await settle(100);
+      check("a control Claude adds to the cluster is carried like the rest", document.getElementById("extraItem").getAttribute("data-th-order") === "carried");
+      check("the gauge still ends the line", lastBefore && bar().parentElement.lastElementChild === bar());
+
+      const fail = results.filter((r) => r.startsWith("FAIL")).length;
+      document.getElementById("out").textContent =
+        (fail ? fail + " FAILED, " : "ALL ") + (results.length - fail) + " passed\n\n" + results.join("\n") +
+        "\n\n" + FRAMES + " frames in " + wall.toFixed(0) + "ms · " + d("passes") + " passes · " +
+        rects + " rects · " + styles + " styles · " + qsas + " queries · " + ms.toFixed(1) + "ms in passes";
+    })();
+  </script>
+</body>
+</html>

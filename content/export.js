@@ -242,7 +242,10 @@
   /* Walk both kinds in one pass so turns come out in document order.
      Collecting users then assistants and concatenating would put the
      whole conversation out of sequence. */
-  function extractTurns() {
+  /* `read` turns a node into its text, and defaults to the full Markdown
+     reading. The popup asks for the size of a conversation every time it
+     opens, and for that the cheap reading below is enough — see stats(). */
+  function extractTurns(read) {
     const root = transcriptRoot();
     if (!root) return [];
 
@@ -250,8 +253,13 @@
     const turns = [];
 
     for (const node of nodes) {
-      // A match nested inside an earlier match would duplicate its text.
-      if (turns.some((t) => t.node.contains(node))) continue;
+      /* A match nested inside an earlier match would duplicate its text.
+         Only the latest accepted turn needs asking: nodes arrive in document
+         order, so anything nested in an accepted turn arrives before any turn
+         after it. Asking all of them made this quadratic in the length of the
+         conversation. */
+      const last = turns[turns.length - 1];
+      if (last && last.node.contains(node)) continue;
 
       const isUser = node.matches(USER_SELECTOR);
 
@@ -261,7 +269,7 @@
          document order and are read on their own. */
       if (!isUser && node.querySelector(USER_SELECTOR)) continue;
 
-      const text = isUser ? userText(node) : assistantText(node);
+      const text = read ? read(node, isUser) : isUser ? userText(node) : assistantText(node);
       if (!text) continue;
 
       turns.push({ node, role: isUser ? "user" : "assistant", text });
@@ -355,8 +363,28 @@
     return filename;
   }
 
+  /* The size of the conversation, for the popup's one-line hint. Not the
+     export: that reads each message's laid-out text and walks its Markdown,
+     which for a long conversation makes the page lay out hundreds of messages
+     and builds a transcript only to count its words — every time the popup
+     opens, while it is blank. textContent needs no layout, and the prose
+     roots leave out the status lines and banners the export drops too, so
+     the count agrees with it to within the odd screen-reader heading. */
+  function lean(node, isUser) {
+    const roots = isUser ? [node] : proseRoots(node);
+    const parts = [];
+    for (const root of roots.length ? roots : [node]) {
+      /* Text node by text node, joined with a space. textContent runs one
+         paragraph's last word into the next paragraph's first ("count.Reply"),
+         which undercounts every block boundary in the conversation. */
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) parts.push(n.nodeValue);
+    }
+    return parts.join(" ").trim();
+  }
+
   function stats() {
-    const turns = extractTurns();
+    const turns = extractTurns(lean);
     let words = 0;
     for (const turn of turns) {
       const matched = turn.text.match(/\S+/g);

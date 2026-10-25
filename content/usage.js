@@ -821,10 +821,26 @@
      second. */
   let composerEl = null;
 
+  /* A page with no composer — settings, a project list, the artifacts
+     gallery — has none to find, and finding it means measuring every text
+     field on the page. That used to repeat on every change; now it is tried
+     at most every SCAN_MS (a composer mounts in a moment, not a frame) and
+     the pass is re-armed for when the window closes. */
+  const SCAN_MS = 500;
+  /* -Infinity, not 0: performance.now() counts from navigation start, so on a
+     fresh load 0 would read as "just scanned" and postpone the first look. */
+  let lastScan = -Infinity;
+
   function composer() {
     if (composerEl && composerEl.isConnected && composerEl.querySelector(EDITABLE)) {
       return composerEl;
     }
+    const now = performance.now();
+    if (now - lastScan < SCAN_MS) {
+      later();
+      return null;
+    }
+    lastScan = now;
     composerEl = findComposer();
     return composerEl;
   }
@@ -1106,6 +1122,10 @@
       !!footerLayout &&
       footerLayout.row === row &&
       row.isConnected &&
+      /* A control Claude adds to the cluster later has not been sequenced, and
+         one it removes has left a mark behind; either way the arrangement is
+         out of date. */
+      row.children.length === footerLayout.kids &&
       footerLayout.marked.every((el) => el.isConnected)
     );
   }
@@ -1113,7 +1133,7 @@
   function applyFooterLayout(row, picker, editable) {
     if (footerLayoutIntact(row)) return;
     undoFooterLayout();
-    footerLayout = { row, marked: [] };
+    footerLayout = { row, marked: [], kids: row.children.length };
     const mark = (el, attr, value) => {
       el.setAttribute(attr, value);
       footerLayout.marked.push(el);
@@ -1161,6 +1181,45 @@
     mark(pickerItem, ORDER, "model");
   }
 
+  /* Where to look for the picker: after the composer, never the whole page.
+     This used to be document.querySelectorAll(MODEL_PICKER) — attribute-
+     substring selectors, case-insensitive, walking every element on the page.
+     On a long conversation that is tens of thousands of nodes, about 6 ms a
+     time, and it ran on every DOM change whenever the gauge was not already
+     settled on the footer: for as long as Claude streamed a reply, that is
+     every frame, out of a budget of 16.
+
+     The footer line comes after the composer in the document, so the search
+     is the composer itself and then the siblings that follow it, a level at a
+     time up the tree, nearest first. That finds the line however the
+     containers around it are sized, and never reaches the transcript, which
+     comes before. A sibling taller than the composer plus the reach below it
+     is not a line under the composer and is skipped, which bounds the work on
+     a layout this does not expect. */
+  const CLIMB_MAX = 6;
+  const SIBLINGS_MAX = 4;
+
+  function nearbyPickers(box) {
+    const limit = box.getBoundingClientRect().height + FOOTER_REACH + 40;
+    const found = [];
+
+    // A picker inside the card itself, where some layouts keep it.
+    for (const p of box.querySelectorAll(MODEL_PICKER)) found.push(p);
+
+    let node = box;
+    for (let level = 0; level < CLIMB_MAX && node && node !== document.body; level += 1) {
+      let sib = node.nextElementSibling;
+      for (let n = 0; n < SIBLINGS_MAX && sib; n += 1, sib = sib.nextElementSibling) {
+        if (sib.getBoundingClientRect().height > limit) continue;
+        if (sib.matches(MODEL_PICKER)) found.push(sib);
+        for (const p of sib.querySelectorAll(MODEL_PICKER)) found.push(p);
+      }
+      if (found.length) break;
+      node = node.parentElement;
+    }
+    return found;
+  }
+
   function footerSlot(box) {
     const editable = box.querySelector(EDITABLE);
     const card = box.getBoundingClientRect();
@@ -1177,7 +1236,7 @@
        line is looked for again. */
     undoFooterLayout();
 
-    for (const picker of document.querySelectorAll(MODEL_PICKER)) {
+    for (const picker of nearbyPickers(box)) {
       if ((usageBar && usageBar.contains(picker)) || picker.closest(DIALOG)) continue;
       const r = picker.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) continue;
@@ -1228,6 +1287,53 @@
     return /^\/code(\/|$)/.test(location.pathname);
   }
 
+  /* ---- what a settled gauge costs ---------------------------------------
+
+     positionBar() runs after every change to the page, and claude.ai changes
+     constantly: every streamed token, every keystroke. A full pass walks the
+     composer, reads layout, and may search; that is worth doing when
+     something has actually moved, and wasted when nothing has.
+
+     So a gauge that is exactly where the last pass put it — same parent, same
+     neighbour, and for the footer the arrangement still whole — is left alone
+     with a handful of property reads and no layout. Anything that stops being
+     true falls straight through to the full pass, with no delay, so a
+     re-render that removes the gauge is repaired on the next frame as before.
+
+     Even a settled gauge is re-checked for real now and then, because a
+     better position can appear without disturbing the one it is in (the
+     footer line mounting after the composer, say): at most once per
+     IDLE_MS, with a trailing re-check so a change inside the quiet window is
+     never dropped. */
+  const IDLE_MS = 400;
+  /* Shorter for a gauge that has nowhere to go yet: a composer mounts in a
+     moment, and the gauge should follow it promptly rather than after the
+     quiet window — but still not on every change while it hasn't. */
+  const SEEK_MS = 120;
+  let foundLast = false;
+  let mountedParent = null;
+  let mountedBefore = null;
+  let lastFull = -Infinity;
+  let trailTimer = 0;
+
+  function later(ms) {
+    if (trailTimer) return;
+    trailTimer = setTimeout(() => {
+      trailTimer = 0;
+      schedule();
+    }, ms || IDLE_MS);
+  }
+
+  function atHome() {
+    if (!usageBar.isConnected || mountedRank === Infinity) return false;
+    if (usageBar.parentElement !== mountedParent || !mountedParent.isConnected) return false;
+    if (usageBar.nextElementSibling !== mountedBefore) return false;
+    if (mountedRank === RANK.footer) {
+      return footerLayoutIntact(mountedParent) && mountedParent.lastElementChild === usageBar;
+    }
+    return !!composerEl && composerEl.isConnected && composerEl.contains(usageBar);
+  }
+
   function positionBar() {
     if (!usageBar) return;
 
@@ -1239,8 +1345,20 @@
         usageBar.remove();
       }
       mountedRank = Infinity;
+      foundLast = false;
       return;
     }
+
+    const now = performance.now();
+    if (now - lastFull < IDLE_MS && atHome()) {
+      later();
+      return;
+    }
+    if (!foundLast && now - lastFull < SEEK_MS) {
+      later(SEEK_MS);
+      return;
+    }
+    lastFull = now;
 
     const box = composer();
     if (!box) return;
@@ -1265,7 +1383,8 @@
     if (!settled) mountedRank = Infinity;
 
     const slot = findSlot(box);
-    if (!slot || !slot.parent) return;
+    foundLast = !!slot && !!slot.parent;
+    if (!foundLast) return;
 
     const footer = () => {
       if (mountedRank === RANK.footer && slot.picker) {
@@ -1291,12 +1410,16 @@
     // Already exactly where it belongs.
     if (parent === slot.parent && usageBar.nextElementSibling === slot.before) {
       mountedRank = slot.rank;
+      mountedParent = slot.parent;
+      mountedBefore = slot.before;
       footer();
       return;
     }
 
     slot.parent.insertBefore(usageBar, slot.before);
     mountedRank = slot.rank;
+    mountedParent = slot.parent;
+    mountedBefore = slot.before;
     // usage.css spaces and orders the gauge on the footer line; see there.
     usageBar.toggleAttribute("data-footer", slot.rank === RANK.footer);
     footer();
@@ -1474,7 +1597,13 @@
       }
     });
 
-    new MutationObserver(schedule).observe(document.body, {
+    /* Not for its own changes. Every reading rewrites the gauge's text, which
+       is a mutation inside the subtree this watches, which scheduled a pass
+       to look at a gauge that had not moved. */
+    new MutationObserver((records) => {
+      if (usageBar && records.every((r) => usageBar.contains(r.target))) return;
+      schedule();
+    }).observe(document.body, {
       childList: true,
       subtree: true,
     });
