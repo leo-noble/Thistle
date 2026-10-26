@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thistle — Your Claude limit, at a glance</title>
+  <meta name="description" content="Thistle adds a small usage ring to Claude's chat, exports conversations as clean Markdown, and continues them in ChatGPT, Gemini or Grok. For Firefox and Chrome.">
+  <meta name="color-scheme" content="dark light">
+  <meta property="og:title" content="Thistle — Your Claude limit, at a glance">
+  <meta property="og:description" content="A usage ring in Claude's chat, clean Markdown export, and one-click continue in ChatGPT, Gemini or Grok.">
+  <meta property="og:image" content="assets/shots/hero.png">
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav" id="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="#top" aria-label="Thistle home">
+        <img src="assets/icon.png" alt="" width="22" height="22">
+        <span>Thistle</span>
+      </a>
+      <nav class="nav__links" aria-label="Sections">
+        <a href="#ring">Ring</a>
+        <a href="#export">Export</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#install">Install</a>
+      </nav>
+      <a class="nav__cta" href="#install">Get Thistle</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ============ Hero ============ -->
+    <section class="hero">
+      <p class="eyebrow reveal">For Claude on the web</p>
+      <h1 class="hero__title reveal">Know your limit<br><span class="dim">before you hit it.</span></h1>
+      <p class="hero__lede reveal">A small ring in Claude's chat bar shows how much of your session you've used, and when it resets. Thistle also exports conversations and continues them anywhere.</p>
+      <div class="cta-row reveal">
+        <a class="btn btn--primary" data-firefox href="https://addons.mozilla.org/en-US/firefox/addon/thistle-toolkit-for-claude/" rel="noopener">
+          Add to Firefox
+        </a>
+        <a class="btn btn--secondary" href="#chrome">
+          Get it for Chrome
+        </a>
+      </div>
+      <p class="fineprint reveal">Free. No account. Nothing leaves your browser.</p>
+      <figure class="hero__shot reveal">
+        <img src="assets/shots/hero.png" alt="Claude's chat bar with Thistle's blue usage ring at the end of the footer, after the model name, and its panel open showing the current session at 42% resetting in 2 hours 14 minutes, and the weekly limit at 31%." width="844" height="439">
+      </figure>
+    </section>
+
+    <!-- ============ Ring ============ -->
+    <section class="section" id="ring">
+      <div class="section__head">
+        <p class="eyebrow reveal">The ring</p>
+        <h2 class="reveal">One glance.<br><span class="dim">No surprises.</span></h2>
+        <p class="lede reveal">It sits in the corner of the chat bar, right after the model name, the same place Claude Code puts its own. It fills as you use your session and changes colour as you get close.</p>
+      </div>
+      <div class="states">
+        <figure class="state reveal">
+          <img src="assets/shots/ring-blue.png" alt="The ring in blue, about 42% full, at the end of the footer." width="261" height="44">
+          <figcaption><strong>Plenty left</strong><span>Blue, below 75%.</span></figcaption>
+        </figure>
+        <figure class="state reveal">
+          <img src="assets/shots/ring-yellow.png" alt="The ring in yellow, about 80% full." width="261" height="44">
+          <figcaption><strong>Getting close</strong><span>Yellow from 75%.</span></figcaption>
+        </figure>
+        <figure class="state reveal">
+          <img src="assets/shots/ring-red.png" alt="The ring in red, almost full." width="261" height="44">
+          <figcaption><strong>Nearly out</strong><span>Red from 90%.</span></figcaption>
+        </figure>
+      </div>
+
+      <div class="split">
+        <div class="split__text">
+          <h3 class="reveal">Made to look like it was always there.</h3>
+          <p class="reveal">Thistle draws with Claude's own colours, so it switches between light and dark with the page. It adds the ring to the end of the line and leaves everything else exactly where Claude put it.</p>
+          <ul class="ticks reveal">
+            <li>Click the ring for your session and weekly limits</li>
+            <li>Hover for the exact percentage and reset time</li>
+            <li>Updates live while Claude replies</li>
+            <li>Hidden on Claude Code, which has its own</li>
+          </ul>
+        </div>
+        <figure class="split__shot reveal">
+          <img src="assets/shots/composer.png" alt="Claude's composer with plus, dictate and voice buttons on the left, the disclaimer centred, and Sonnet 5.5 Medium, Auto and Thistle's ring on the right." width="800" height="188">
+        </figure>
+      </div>
+    </section>
+
+    <!-- ============ Export ============ -->
+    <section class="section section--alt" id="export">
+      <div class="split split--reverse">
+        <figure class="split__shot split__shot--popup reveal">
+          <img src="assets/shots/popup.png" alt="Thistle's toolbar popup: a 42% session ring resetting in 2 hours 14 minutes, a weekly bar at 31%, Copy as Markdown and Download buttons, and Continue in ChatGPT, Gemini or Grok." width="300" height="338">
+        </figure>
+        <div class="split__text">
+          <p class="eyebrow reveal">The popup</p>
+          <h2 class="reveal">Take the conversation<br><span class="dim">anywhere.</span></h2>
+          <p class="lede reveal">Copy or download any Claude chat as clean Markdown, with code blocks, lists and tables intact. Or open it in ChatGPT, Gemini or Grok, typed into the box and ready to continue.</p>
+          <ul class="ticks reveal">
+            <li>Real Markdown, not a wall of text</li>
+            <li>Shows the size before you copy</li>
+            <li>One click to continue somewhere else</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Privacy ============ -->
+    <section class="section" id="privacy">
+      <div class="section__head">
+        <p class="eyebrow reveal">Privacy</p>
+        <h2 class="reveal">Your chats stay yours.</h2>
+        <p class="lede reveal">Thistle runs entirely in your browser. It reads the usage figure Claude already shows you, and nothing else ever leaves your computer.</p>
+      </div>
+      <div class="cards">
+        <div class="card reveal">
+          <div class="card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/><path d="M3 3l18 18"/></svg></div>
+          <h3>No accounts</h3>
+          <p>Nothing to sign up for, nothing to log in to.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg></div>
+          <h3>No tracking</h3>
+          <p>No analytics and no data collection of any kind.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6M14 4l-4 16"/></svg></div>
+          <h3>Open source</h3>
+          <p>Plain, readable code. <a href="https://github.com/leo-noble/Thistle" rel="noopener">See it on GitHub.</a></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Install ============ -->
+    <section class="section section--alt" id="install">
+      <div class="section__head">
+        <p class="eyebrow reveal">Install</p>
+        <h2 class="reveal">Two minutes. Two browsers.</h2>
+      </div>
+
+      <div class="tabs reveal" role="tablist" aria-label="Choose your browser">
+        <button class="tab" role="tab" id="tab-firefox" aria-controls="panel-firefox" aria-selected="false" data-tab="firefox">Firefox</button>
+        <button class="tab" role="tab" id="tab-chrome" aria-controls="panel-chrome" aria-selected="true" data-tab="chrome">Chrome</button>
+      </div>
+
+      <!-- Firefox -->
+      <div class="panel" role="tabpanel" id="panel-firefox" aria-labelledby="tab-firefox" hidden>
+        <div class="firefox">
+          <h3>Thistle is on Firefox Add-ons.</h3>
+          <p>Install it like any other add-on. It updates itself.</p>
+          <a class="btn btn--primary btn--large" data-firefox href="https://addons.mozilla.org/en-US/firefox/addon/thistle-toolkit-for-claude/" rel="noopener">Add to Firefox</a>
+          <ol class="mini-steps">
+            <li>Open the link and click <b>Add to Firefox</b>.</li>
+            <li>Click <b>Add</b> when Firefox asks.</li>
+            <li>Open <b>claude.ai</b>. The ring appears under the chat box.</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Chrome -->
+      <div class="panel" role="tabpanel" id="panel-chrome" aria-labelledby="tab-chrome">
+        <div class="chrome-intro" id="chrome">
+          <div>
+            <h3>Install for Chrome in developer mode.</h3>
+            <p>Thistle isn't on the Chrome Web Store yet, so Chrome installs it from a folder. It takes about two minutes. This works in Chrome, Edge, Brave and Arc too.</p>
+          </div>
+          <a class="btn btn--primary btn--large" href="downloads/thistle-chrome.zip" download>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19.5h14"/></svg>
+            Download for Chrome
+            <span class="btn__meta" data-version></span>
+          </a>
+        </div>
+
+        <ol class="steps">
+          <li class="step reveal">
+            <div class="step__text">
+              <span class="step__n">1</span>
+              <h4>Unzip it</h4>
+              <p>Open your Downloads folder and double-click <code>thistle-chrome.zip</code>. You'll get a folder called <code>thistle-chrome</code>.</p>
+              <p class="note">Keep this folder somewhere safe, like your Documents. Chrome runs Thistle from it, so if you delete it Thistle stops working.</p>
+            </div>
+            <figure class="step__shot step__shot--drawn" aria-label="Illustration: the zip file in Downloads becomes a folder named thistle-chrome.">
+              <div class="finder">
+                <div class="finder__bar"><i></i><i></i><i></i><span>Downloads</span></div>
+                <div class="finder__body">
+                  <div class="file">
+                    <div class="file__zip" aria-hidden="true"></div>
+                    <span>thistle-chrome.zip</span>
+                  </div>
+                  <div class="arrow" aria-hidden="true">→</div>
+                  <div class="file">
+                    <div class="file__folder" aria-hidden="true"></div>
+                    <span>thistle-chrome</span>
+                  </div>
+                </div>
+              </div>
+              <figcaption>Illustration</figcaption>
+            </figure>
+          </li>
+
+          <li class="step reveal">
+            <div class="step__text">
+              <span class="step__n">2</span>
+              <h4>Turn on Developer mode</h4>
+              <p>In Chrome's address bar, type <code class="copy" data-copy="chrome://extensions">chrome://extensions</code> and press Return. Then switch on <b>Developer mode</b> in the top-right corner.</p>
+            </div>
+            <figure class="step__shot">
+              <img src="assets/shots/chrome-2-developer-mode.png" alt="Chrome's Extensions page with the Developer mode switch in the top-right corner outlined." width="720" height="96">
+            </figure>
+          </li>
+
+          <li class="step reveal">
+            <div class="step__text">
+              <span class="step__n">3</span>
+              <h4>Load the folder</h4>
+              <p>Click <b>Load unpacked</b>, which has just appeared on the left. Choose the <code>thistle-chrome</code> folder from step 1, the folder itself and not the zip, then click <b>Select</b>.</p>
+            </div>
+            <figure class="step__shot">
+              <img src="assets/shots/chrome-3-load-unpacked.png" alt="Chrome's Extensions page with Developer mode on and the Load unpacked button outlined." width="720" height="170">
+            </figure>
+          </li>
+
+          <li class="step reveal">
+            <div class="step__text">
+              <span class="step__n">4</span>
+              <h4>That's it</h4>
+              <p>Thistle shows up in your extensions. Click the puzzle piece in Chrome's toolbar and pin Thistle to keep the popup one click away. Then open <b>claude.ai</b>.</p>
+            </div>
+            <figure class="step__shot">
+              <img src="assets/shots/chrome-4-installed.png" alt="Chrome's Extensions page listing Thistle with its icon, description and the on switch enabled." width="900" height="470">
+            </figure>
+          </li>
+        </ol>
+
+        <div class="update">
+          <h4>Updating later</h4>
+          <p>Download the new zip and unzip it over your old <code>thistle-chrome</code> folder. Then click the round <b>reload</b> arrow on Thistle's card in <code>chrome://extensions</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="section" id="faq">
+      <div class="section__head">
+        <h2 class="reveal">Questions.</h2>
+      </div>
+      <div class="faq">
+        <details class="reveal">
+          <summary>Why does Chrome show a "developer mode" warning?</summary>
+          <p>Chrome reminds you about any extension that isn't from the Chrome Web Store. It's expected for Thistle. You can close the reminder, and Thistle keeps working.</p>
+        </details>
+        <details class="reveal">
+          <summary>Where does the usage number come from?</summary>
+          <p>From claude.ai itself, the same figure Claude uses for its own usage limits. Thistle asks your open Claude tab for it, so it uses your existing sign-in and nothing is sent anywhere else.</p>
+        </details>
+        <details class="reveal">
+          <summary>The ring isn't showing.</summary>
+          <p>Reload the Claude tab once after installing. The ring appears on Claude chat pages, under the chat box. It's hidden on Claude Code on the web, which already has its own.</p>
+        </details>
+        <details class="reveal">
+          <summary>Does it work on the free plan?</summary>
+          <p>Yes. Before you've sent a message in a session the ring shows 0%, and it fills as you go.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand"><img src="assets/icon.png" alt="" width="18" height="18"> Thistle</div>
+      <p>Thistle is an independent project and isn't made by or affiliated with Anthropic. Claude is a trademark of Anthropic.</p>
+      <nav aria-label="Links">
+        <a data-firefox href="https://addons.mozilla.org/en-US/firefox/addon/thistle-toolkit-for-claude/" rel="noopener">Firefox Add-ons</a>
+        <a href="downloads/thistle-chrome.zip" download>Chrome download</a>
+        <a href="https://github.com/leo-noble/Thistle" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -229,8 +229,8 @@
          holding a leading group (the tools, then a stretching gap the
          disclaimer sits in) and a right-hand wrapper around the cluster of
          the model picker (wrapped twice) and "Auto". The cluster is where
-         Claude Code puts its ring, and it outranks every composer position;
-         "Auto" is carried to the left, as Code has it. */
+         Claude Code puts its ring, and it outranks every composer position.
+         Everything else on the line is left exactly as Claude draws it. */
       const foot = document.createElement("div");
       foot.className = "flex";
       foot.id = "footLine";
@@ -247,6 +247,7 @@
         "</span></div>" +
         '<div class="grid" id="autoItem"><span style="display: inline-flex; padding: 0 8px" id="auto">Auto</span></div>' +
         "</div></div>";
+      document.querySelector("main").style.maxWidth = "900px";
       document.querySelector("main").append(foot);
       const box = (id) => document.getElementById(id).getBoundingClientRect();
       const sameLine = (a, b) => Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)) <= 1;
@@ -255,17 +256,17 @@
         await until(() => !!bar() && bar().parentElement && bar().parentElement.id === "chinEnd");
         return bar().parentElement.id === "chinEnd" && bar() === bar().parentElement.lastElementChild;
       });
-      await check("footer → Auto carried to the left, after the tools", async () => {
-        await until(() => box("auto").right <= box("disclaimer").left);
-        const a = box("auto");
-        return a.left >= box("footMic").right && a.right <= box("disclaimer").left + 1 && sameLine(a, box("footMic"));
+      /* The line stays as Claude draws it. Moving "Auto" left (as Claude Code
+         lays its line out) was tried two ways and both pulled the centred
+         disclaimer off-centre, so nothing but the gauge is added. */
+      await check("footer → Auto stays where Claude put it, after the model", () => {
+        const a = box("auto"), m = box("modelItem"), g = bar().getBoundingClientRect();
+        return a.left >= m.right - 1 && g.left >= a.right - 1 && sameLine(a, m);
       });
-      await check("footer → only model and ring on the right", () => {
-        const p = document.querySelector('[data-testid="model-selector-dropdown"]').getBoundingClientRect();
-        const g = bar().getBoundingClientRect();
-        const line = box("footLine");
-        return p.left >= box("disclaimer").right - 1 && g.left >= p.right &&
-          Math.abs(g.right - line.right) <= 2 && sameLine(g, p);
+      await check("footer → nothing on the line is marked or reshaped", () => {
+        const lead = box("footLead"), right = box("footRight"), line = box("footLine");
+        const marked = document.querySelector("#footLine [data-th-flat], #footLine [data-th-order], #footLine [style*='--th-shift']");
+        return !marked && lead.width > 0 && Math.abs(lead.width + right.width + 8 - line.width) <= 1;
       });
       await check("footer → nothing re-parented in Claude's DOM", () => {
         return document.getElementById("autoItem").parentElement.id === "chinEnd" &&
@@ -277,23 +278,22 @@
         const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
         return !!hit && bar().contains(hit);
       });
-      await check("footer → /code undoes the rearrangement, and back restores it", async () => {
+      await check("footer → hidden on /code, back on return", async () => {
         history.pushState(null, "", "/code/session");
         document.getElementById("card").append(document.createElement("span"));
         await until(() => !bar());
-        const undone = !bar() && !document.querySelector("[data-th-flat], [data-th-order]") &&
-          box("auto").left >= box("modelItem").right - 1;
+        const gone = !bar();
         history.pushState(null, "", home);
         document.getElementById("card").append(document.createElement("span"));
-        await until(() => !!bar() && box("auto").right <= box("disclaimer").left);
-        return undone && bar().parentElement.id === "chinEnd" && box("auto").right <= box("disclaimer").left;
+        await until(() => !!bar());
+        return gone && bar().parentElement.id === "chinEnd" && bar() === bar().parentElement.lastElementChild;
       });
-      await check("footer → re-applied when Claude re-renders Auto", async () => {
+      await check("footer → Claude re-rendering Auto leaves the gauge last", async () => {
         const fresh = document.getElementById("autoItem").cloneNode(true);
-        fresh.removeAttribute("data-th-order");
         document.getElementById("autoItem").replaceWith(fresh);
-        await until(() => fresh.getAttribute("data-th-order") === "carried");
-        return fresh.getAttribute("data-th-order") === "carried" && box("auto").right <= box("disclaimer").left;
+        await settle();
+        await until(() => bar().parentElement.lastElementChild === bar());
+        return bar().parentElement.id === "chinEnd" && bar().parentElement.lastElementChild === bar();
       });
 
       /* The same footer, with the disclaimer where claude.ai may well keep it:

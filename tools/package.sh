@@ -85,5 +85,12 @@ PY
 build chrome
 build firefox
 
+# The website's Chrome download. A stable name, so the page links to one
+# path whatever the version; the version itself is shown from manifest.json.
+mkdir -p "$root/site/downloads"
+cp "$dist/thistle-chrome-$version.zip" "$root/site/downloads/thistle-chrome.zip"
+printf '%s\n' "$version" > "$root/site/downloads/VERSION"
+echo "site   downloads/thistle-chrome.zip  ($version)"
+
 echo
 echo "dist/ is gitignored — these are build output, rebuilt from source on every release."

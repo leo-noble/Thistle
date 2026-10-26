@@ -89,36 +89,9 @@
    own padding is tighter than an icon button's, so it gets a little air —
    the gap Claude Code leaves between "High" and its ring. */
 .th-usage[data-footer] {
-  order: 4;
   margin-inline-start: 6px;
 }
 
-/* The footer line, rearranged to read like Claude Code's: tools and the
-   controls carried over from the model's cluster ("Auto") on the left, then
-   whatever stretches, then the model and effort, then the ring. usage.js
-   marks Claude's own elements and never moves them; these rules are the
-   whole of the move. !important because each one is up against a utility
-   class on the same element. */
-[data-th-flat] {
-  display: contents !important;
-}
-
-[data-th-order="lead"] {
-  order: 0 !important;
-}
-
-[data-th-order="carried"] {
-  order: 1 !important;
-}
-
-[data-th-order="rest"] {
-  order: 2 !important;
-}
-
-[data-th-order="model"] {
-  order: 3 !important;
-  margin-inline-start: auto !important;
-}
 
 /* Visually hidden, not display: none — it still names the reading for the
    tests and for anything that reads the control's text. */

@@ -213,7 +213,12 @@
        up with a just-opened panel. */
     const width = popover.getBoundingClientRect().width || 280;
 
-    let left = rect.left;
+    /* Opened toward the middle of the window, the way a native menu does
+       near an edge. In the footer corner the gauge is the last thing on the
+       right, and a panel growing rightward from it hung off the end of the
+       composer; right-aligned to the gauge, it sits over the composer it
+       belongs to. */
+    let left = rect.left + rect.width / 2 > vw / 2 ? rect.right - width : rect.left;
     if (left + width > vw - POP_EDGE) left = vw - width - POP_EDGE;
     if (left < POP_EDGE) left = POP_EDGE;
 
@@ -1078,42 +1083,22 @@
     return null;
   }
 
-  /* ---- the rest of the footer line -----------------------------------
+  /* ---- the footer cluster, remembered ----------------------------------
 
-     Claude Code's line reads "Default  Repo  Auto ·········· Opus 5.5 High ◯":
-     tools and modes on the left, and on the right only the model, its effort
-     and the ring. The chat line puts "Auto" in the right-hand cluster,
-     between the picker and the gauge. So whatever shares the picker's
-     cluster is carried over to the left side, after the line's own tools.
+     The gauge is appended to the picker's cluster and nothing else on the
+     line is touched. Earlier versions also carried "Auto"/"Manual" over to
+     the left, as Claude Code lays its line out — first by re-ordering Claude's
+     wrappers, then by drawing the control shifted — and every way of doing it
+     disturbed the line's balance: Claude centres "Claude is AI and can make
+     mistakes" in the space it measures between the two sides, and anything
+     that moves either side moves the disclaimer. The line stays exactly as
+     Claude draws it.
 
-     Carried visually, never moved. These nodes are React's: if one is
-     re-parented, React's next removeChild on its old parent throws and takes
-     the page down with it. So the elements are only marked — attributes
-     React does not render and so never clears — and usage.css does the
-     moving: the wrappers between the cluster and the line, and the line's
-     leading tool group, become `display: contents`, which makes all of their
-     children items of the one line, and `order` sequences those items as
-     tools, the carried controls, whatever stretches in the middle, the model,
-     the ring.
-
-     Every mark is recorded so it can all be undone the moment the gauge
-     leaves the footer, and the whole arrangement is rebuilt if any marked
-     node is replaced. */
-  const FLAT = "data-th-flat";
-  const ORDER = "data-th-order";
+     What is kept is which cluster was chosen and how many children it had,
+     so the next pass can tell at a glance that nothing has changed. */
   let footerLayout = null;
 
-  function laidOut(el) {
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  }
-
   function undoFooterLayout() {
-    if (!footerLayout) return;
-    for (const el of footerLayout.marked) {
-      el.removeAttribute(FLAT);
-      el.removeAttribute(ORDER);
-    }
     footerLayout = null;
   }
 
@@ -1122,103 +1107,14 @@
       !!footerLayout &&
       footerLayout.row === row &&
       row.isConnected &&
-      /* A control Claude adds to the cluster later has not been sequenced, and
-         one it removes has left a mark behind; either way the arrangement is
-         out of date. */
-      row.children.length === footerLayout.kids &&
-      footerLayout.marked.every((el) => el.isConnected)
+      // A control added or removed means the line needs looking at again.
+      row.children.length === footerLayout.kids
     );
   }
 
-  /* Would making this element display: contents unhook something?
-
-     An element with no box cannot be a containing block. So if it is the
-     anchor of something positioned — an absolutely placed child that is
-     sized or offset against it — that child is re-anchored to the next
-     positioned ancestor up, and goes wherever that puts it. That is what
-     sent the "Claude is AI and can make mistakes" line, centred inside its
-     wrapper with inset: 0, flying up above the composer.
-
-     So an element is only opened up if nothing inside it is positioned
-     against it: it forms no containing block at all, or it forms one and has
-     no absolutely or fixed positioned descendant to use it. Anything else
-     leaves the whole arrangement undone; the line stays as Claude draws it
-     and "Auto" stays where Claude puts it. Losing a nicety is better than
-     displacing something. */
-  function formsContainingBlock(cs) {
-    return (
-      cs.position !== "static" ||
-      cs.transform !== "none" ||
-      cs.filter !== "none" ||
-      cs.perspective !== "none" ||
-      (cs.contain && cs.contain !== "none" && cs.contain !== "style") ||
-      /transform|filter|perspective/.test(cs.willChange || "")
-    );
-  }
-
-  function safeToOpen(el) {
-    if (!formsContainingBlock(getComputedStyle(el))) return true;
-    for (const d of el.querySelectorAll("*")) {
-      const p = getComputedStyle(d).position;
-      if (p === "absolute" || p === "fixed") return false;
-    }
-    return true;
-  }
-
-  function applyFooterLayout(row, picker, editable) {
+  function applyFooterLayout(row) {
     if (footerLayoutIntact(row)) return;
-    undoFooterLayout();
-    footerLayout = { row, marked: [], kids: row.children.length };
-    const mark = (el, attr, value) => {
-      el.setAttribute(attr, value);
-      footerLayout.marked.push(el);
-    };
-
-    const pickerItem = Array.from(row.children).find((c) => c.contains(picker));
-    const carried = Array.from(row.children).filter(
-      (c) => c !== usageBar && c !== pickerItem && laidOut(c)
-    );
-    if (!pickerItem || !carried.length) return;
-
-    /* The line: the first horizontal row above the cluster that holds
-       something besides the branch the cluster is on. */
-    let branch = row;
-    let line = row.parentElement;
-    for (let i = 0; i < 6 && line; i += 1) {
-      if (line === document.body || (editable && line.contains(editable))) return;
-      if (isRow(line) && laidOutChildren(line) >= 2) break;
-      branch = line;
-      line = line.parentElement;
-    }
-    if (!line || !isRow(line)) return;
-
-    const lead = Array.from(line.children).find((c) => c !== branch && laidOut(c));
-
-    const chain = [];
-    for (let n = row; n; n = n.parentElement) {
-      chain.push(n);
-      if (n === branch) break;
-    }
-    const openLead = !!lead && isRow(lead);
-    if (!chain.every(safeToOpen) || (openLead && !safeToOpen(lead))) return;
-
-    for (const n of chain) mark(n, FLAT, "");
-    for (const c of line.children) {
-      if (c !== branch && c !== lead) mark(c, ORDER, "rest");
-    }
-    if (openLead) {
-      /* Opened up too, so the carried controls can sit among its tools
-         rather than after its spacer — whatever in it stretches (the gap
-         the disclaimer sits in) is sequenced after them. */
-      mark(lead, FLAT, "");
-      for (const c of lead.children) {
-        mark(c, ORDER, parseFloat(getComputedStyle(c).flexGrow) > 0 ? "rest" : "lead");
-      }
-    } else if (lead) {
-      mark(lead, ORDER, "lead");
-    }
-    for (const c of carried) mark(c, ORDER, "carried");
-    mark(pickerItem, ORDER, "model");
+    footerLayout = { row, kids: row.children.length };
   }
 
   /* Where to look for the picker: after the composer, never the whole page.
@@ -1264,16 +1160,14 @@
     const editable = box.querySelector(EDITABLE);
     const card = box.getBoundingClientRect();
 
-    /* Once the line is rearranged the cluster is display: contents and no
-       longer measures as a row, so it is recognised by having been chosen,
-       for as long as the picker is still in it. */
+    /* Once chosen, the cluster is recognised by having been chosen, for as
+       long as the picker is still in it — no need to measure the line again
+       on every change. */
     if (footerLayout && footerLayoutIntact(footerLayout.row)) {
       const picker = footerLayout.row.querySelector(MODEL_PICKER);
       if (picker) return { parent: footerLayout.row, before: null, picker };
     }
-    /* Broken — Claude replaced a node in it. The marks left on the rest
-       would make the line measure as nothing, so they come off before the
-       line is looked for again. */
+    // Changed — Claude added or removed a control. Look for the line again.
     undoFooterLayout();
 
     for (const picker of nearbyPickers(box)) {
@@ -1412,8 +1306,8 @@
        without the card containing it — but only while the picker it ends the
        line after is still in its cluster. The row can outlive the picker, and
        holding position in it would strand the gauge beside nothing. Its
-       height is not asked: a rearranged cluster is display: contents and
-       measures as nothing while laying out perfectly well. */
+       height is not asked here; the parent is the cluster, which the gauge
+       itself keeps laid out. */
     const inFooter =
       mountedRank === RANK.footer && !!parent && !!parent.querySelector(MODEL_PICKER);
     const settled =
@@ -1428,7 +1322,7 @@
 
     const footer = () => {
       if (mountedRank === RANK.footer && slot.picker) {
-        applyFooterLayout(slot.parent, slot.picker, box.querySelector(EDITABLE));
+        applyFooterLayout(slot.parent);
       } else {
         undoFooterLayout();
       }

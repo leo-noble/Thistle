@@ -4,16 +4,39 @@
     {
       "name": "fixture",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8731"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8731"
+      ],
       "port": 8731,
       "url": "http://localhost:8731"
     },
     {
       "name": "nyx",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8742", "--directory", "nyx"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8742",
+        "--directory",
+        "nyx"
+      ],
       "port": 8742,
       "url": "http://localhost:8742"
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8750",
+        "--directory",
+        "site"
+      ],
+      "port": 8750,
+      "url": "http://localhost:8750"
     }
   ]
 }

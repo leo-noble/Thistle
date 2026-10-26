@@ -219,14 +219,12 @@
       for (let i = 0; i < 40 && !bar(); i += 1) await settle(100);
       check("a removed gauge is put back", !!bar() && bar().parentElement.id === "chinEnd");
 
-      const lastBefore = bar() && bar().parentElement.lastElementChild === bar();
       const extra = document.createElement("div");
       extra.id = "extraItem";
       extra.textContent = "New";
-      document.getElementById("chinEnd").insertBefore(extra, bar());
-      for (let i = 0; i < 40 && document.getElementById("extraItem").getAttribute("data-th-order") !== "carried"; i += 1) await settle(100);
-      check("a control Claude adds to the cluster is carried like the rest", document.getElementById("extraItem").getAttribute("data-th-order") === "carried");
-      check("the gauge still ends the line", lastBefore && bar().parentElement.lastElementChild === bar());
+      document.getElementById("chinEnd").append(extra);
+      for (let i = 0; i < 40 && bar().parentElement.lastElementChild !== bar(); i += 1) await settle(100);
+      check("a control Claude adds to the cluster leaves the gauge last", bar().parentElement.id === "chinEnd" && bar().parentElement.lastElementChild === bar());
 
       const fail = results.filter((r) => r.startsWith("FAIL")).length;
       document.getElementById("out").textContent =
